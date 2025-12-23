@@ -269,6 +269,31 @@ export class ArcheonWatcher {
   }
 
   /**
+   * Write content to ARCHEON.arcon file
+   * @param {string} projectPath - Root path of the project
+   * @param {string} content - Content to write to the file
+   * @returns {Object} - { success, error? }
+   */
+  async writeArconFile(projectPath, content) {
+    const arconPath = path.join(projectPath, "archeon", "ARCHEON.arcon");
+
+    try {
+      // Ensure archeon directory exists
+      const archeonDir = path.join(projectPath, "archeon");
+      try {
+        await fs.access(archeonDir);
+      } catch {
+        await fs.mkdir(archeonDir, { recursive: true });
+      }
+
+      await fs.writeFile(arconPath, content, "utf-8");
+      return { success: true, path: arconPath };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Stop watching
    */
   stop() {

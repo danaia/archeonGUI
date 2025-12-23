@@ -1,12 +1,18 @@
 <script setup>
-import { onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import {
   InfiniteCanvas,
   SideDrawer,
   FloatingTerminal,
   ToastContainer,
 } from "./components";
-import { useTerminalStore, useUIStore, useProjectStore } from "./stores";
+import {
+  useTerminalStore,
+  useUIStore,
+  useProjectStore,
+  useTileStore,
+  useRelationshipStore,
+} from "./stores";
 import {
   initArcheonSync,
   reloadFromProject,
@@ -17,10 +23,15 @@ import {
 const terminalStore = useTerminalStore();
 const uiStore = useUIStore();
 const projectStore = useProjectStore();
+const tileStore = useTileStore();
+const relationshipStore = useRelationshipStore();
 
 const isElectron = computed(() => !!window.electronAPI);
 const projectName = computed(() => projectStore.projectName);
 const hasProject = computed(() => !!projectStore.projectPath);
+
+// Update status
+const isUpdating = ref(false);
 
 // Display path is directly from the store (which is initialized from localStorage)
 const displayPath = computed(() => projectStore.projectPath);
@@ -41,6 +52,19 @@ function handleGlobalKeydown(e) {
     e.preventDefault();
     handleOpenProject();
   }
+
+  // Delete key to delete selected tiles
+  if (e.key === "Delete" || e.key === "Backspace") {
+    // Don't trigger if typing in an input
+    if (e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+      const hasSelection =
+        tileStore.selectedTileKey || tileStore.selectedTileKeys.size > 0;
+      if (hasSelection) {
+        e.preventDefault();
+        tileStore.deleteSelectedTiles(relationshipStore);
+      }
+    }
+  }
 }
 
 async function handleOpenProject() {
@@ -56,6 +80,26 @@ async function handleOpenProject() {
       confirmGlyphsFromIndex(projectStore.indexData);
     }
   }
+}
+
+async function handleUpdateArcon() {
+  if (!isElectron.value || !hasProject.value) return;
+
+  isUpdating.value = true;
+  try {
+    const content = tileStore.generateArconContent();
+    const result = await window.electronAPI.archeonWriteArcon(
+      projectStore.projectPath,
+      content
+    );
+
+    if (!result.success) {
+      console.error("Failed to update ARCHEON.arcon:", result.error);
+    }
+  } catch (err) {
+    console.error("Error updating ARCHEON.arcon:", err);
+  }
+  isUpdating.value = false;
 }
 
 onMounted(async () => {
@@ -111,6 +155,38 @@ onUnmounted(() => {
             />
           </svg>
           Open Project
+        </button>
+
+        <button
+          v-if="hasProject"
+          @click="handleUpdateArcon"
+          :disabled="isUpdating"
+          class="px-3 py-1.5 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Save current tiles to ARCHEON.arcon"
+        >
+          <svg
+            class="w-4 h-4"
+            :class="{ 'animate-spin': isUpdating }"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              v-if="!isUpdating"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+            />
+            <path
+              v-else
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          {{ isUpdating ? "Saving..." : "Update" }}
         </button>
       </div>
 

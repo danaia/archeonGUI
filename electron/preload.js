@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("archeon:readIndex", projectPath),
   archeonReadArcon: (projectPath) =>
     ipcRenderer.invoke("archeon:readArcon", projectPath),
+  archeonWriteArcon: (projectPath, content) =>
+    ipcRenderer.invoke("archeon:writeArcon", projectPath, content),
 
   // Archeon event listeners
   onArcheonIndexChanged: (callback) => {

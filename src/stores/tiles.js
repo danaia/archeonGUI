@@ -494,7 +494,92 @@ export const useTileStore = defineStore("tiles", () => {
     if (selectedTileKey.value === key) {
       selectedTileKey.value = null;
     }
+    selectedTileKeys.value.delete(key);
     tiles.value.delete(key);
+  }
+
+  /**
+   * Delete all selected tiles and their relationships
+   * @param {Object} relationshipStore - Relationship store to also delete relationships
+   * @returns {number} - Number of tiles deleted
+   */
+  function deleteSelectedTiles(relationshipStore = null) {
+    const keysToDelete = new Set(selectedTileKeys.value);
+
+    // Also include the single selected tile if any
+    if (selectedTileKey.value && !keysToDelete.has(selectedTileKey.value)) {
+      keysToDelete.add(selectedTileKey.value);
+    }
+
+    if (keysToDelete.size === 0) return 0;
+
+    // Delete relationships connected to these tiles
+    if (relationshipStore) {
+      for (const key of keysToDelete) {
+        const { outgoing, incoming } =
+          relationshipStore.getRelationshipsForTile(key);
+        for (const rel of [...outgoing, ...incoming]) {
+          relationshipStore.deleteRelationship(
+            rel.sourceTileKey,
+            rel.targetTileKey
+          );
+        }
+      }
+    }
+
+    // Delete the tiles
+    for (const key of keysToDelete) {
+      tiles.value.delete(key);
+    }
+
+    // Clear selection
+    selectedTileKey.value = null;
+    selectedTileKeys.value.clear();
+
+    return keysToDelete.size;
+  }
+
+  /**
+   * Generate ARCHEON.arcon content from current tiles
+   * Groups tiles by row (chain) and generates versioned chain definitions
+   * @returns {string} - Generated arcon file content
+   */
+  function generateArconContent() {
+    // Group tiles by row
+    const rowGroups = new Map();
+    for (const tile of tiles.value.values()) {
+      if (!rowGroups.has(tile.row)) {
+        rowGroups.set(tile.row, []);
+      }
+      rowGroups.get(tile.row).push(tile);
+    }
+
+    // Sort rows and generate chains
+    const sortedRows = Array.from(rowGroups.keys()).sort((a, b) => a - b);
+    const lines = [
+      "# ARCHEON.arcon - Generated from Archeon GUI",
+      "# Chain definitions: @version GLYPH:name => GLYPH:name => ...",
+      "",
+    ];
+
+    for (const row of sortedRows) {
+      const tilesInRow = rowGroups.get(row);
+      // Sort tiles by column
+      tilesInRow.sort((a, b) => a.col - b.col);
+
+      // Get chain info
+      const chain = chains.value.get(row);
+      const version = chain?.version || `v${row + 1}`;
+
+      // Generate glyph keys
+      const glyphKeys = tilesInRow.map((tile) => tile.label);
+
+      // Join with flow arrows
+      const chainDef = `@${version} ${glyphKeys.join(" => ")}`;
+      lines.push(chainDef);
+    }
+
+    return lines.join("\n") + "\n";
   }
 
   // Clear all tiles
@@ -571,6 +656,8 @@ export const useTileStore = defineStore("tiles", () => {
     updateGlyphStateByLabel,
     updateChainActivation,
     deleteTile,
+    deleteSelectedTiles,
+    generateArconContent,
     clearTiles,
     initLoginFlowDemo,
     // Multi-selection

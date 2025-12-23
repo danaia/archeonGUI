@@ -320,6 +320,27 @@ class ArcheonWatcher {
     return glyphs;
   }
   /**
+   * Write content to ARCHEON.arcon file
+   * @param {string} projectPath - Root path of the project
+   * @param {string} content - Content to write to the file
+   * @returns {Object} - { success, error? }
+   */
+  async writeArconFile(projectPath, content) {
+    const arconPath = path.join(projectPath, "archeon", "ARCHEON.arcon");
+    try {
+      const archeonDir = path.join(projectPath, "archeon");
+      try {
+        await fs.access(archeonDir);
+      } catch {
+        await fs.mkdir(archeonDir, { recursive: true });
+      }
+      await fs.writeFile(arconPath, content, "utf-8");
+      return { success: true, path: arconPath };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+  /**
    * Stop watching
    */
   stop() {
@@ -428,6 +449,9 @@ ipcMain.handle("archeon:readIndex", async (event, projectPath) => {
 });
 ipcMain.handle("archeon:readArcon", async (event, projectPath) => {
   return archeonWatcher.readArconFile(projectPath);
+});
+ipcMain.handle("archeon:writeArcon", async (event, projectPath, content) => {
+  return archeonWatcher.writeArconFile(projectPath, content);
 });
 ipcMain.handle("fs:readFile", async (event, filePath) => {
   const fs2 = await import("fs/promises");

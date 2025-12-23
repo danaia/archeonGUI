@@ -131,6 +131,10 @@ ipcMain.handle("archeon:readArcon", async (event, projectPath) => {
   return archeonWatcher.readArconFile(projectPath);
 });
 
+ipcMain.handle("archeon:writeArcon", async (event, projectPath, content) => {
+  return archeonWatcher.writeArconFile(projectPath, content);
+});
+
 // File reading for Monaco editor
 ipcMain.handle("fs:readFile", async (event, filePath) => {
   const fs = await import("fs/promises");
