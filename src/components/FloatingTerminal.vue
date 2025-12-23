@@ -243,22 +243,32 @@ function handleResizeMove(e) {
   let newY = resizeStartPosition.value.y;
 
   // Handle different resize directions
+  // East edge: drag right increases width, left edge stays fixed
   if (dir.includes("e")) {
     newWidth = Math.max(300, resizeStartSize.value.width + deltaX);
   }
+
+  // West edge: drag left increases width and moves left edge
   if (dir.includes("w")) {
-    const widthChange = Math.min(deltaX, resizeStartSize.value.width - 300);
-    newWidth = resizeStartSize.value.width - widthChange;
-    newX = resizeStartPosition.value.x + widthChange;
+    const potentialWidth = resizeStartSize.value.width - deltaX;
+    newWidth = Math.max(300, potentialWidth);
+    // Move X position by how much we actually changed width
+    const actualWidthChange = newWidth - resizeStartSize.value.width;
+    newX = resizeStartPosition.value.x - actualWidthChange;
   }
+
+  // North edge: drag up increases height (bottom stays fixed due to bottom positioning)
   if (dir.includes("n")) {
     newHeight = Math.max(200, resizeStartSize.value.height - deltaY);
-    // Adjust Y position since we're resizing from top (bottom-origin)
-    newY =
-      resizeStartPosition.value.y - (newHeight - resizeStartSize.value.height);
   }
+
+  // South edge: drag down increases height, need to move bottom position down
   if (dir.includes("s")) {
-    newHeight = Math.max(200, resizeStartSize.value.height + deltaY);
+    const potentialHeight = resizeStartSize.value.height + deltaY;
+    newHeight = Math.max(200, potentialHeight);
+    // Move Y (bottom) position down by how much we actually changed height
+    const actualHeightChange = newHeight - resizeStartSize.value.height;
+    newY = resizeStartPosition.value.y - actualHeightChange;
   }
 
   // Clamp position
