@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import { GLYPH_TYPES, EDGE_TYPES } from "../types/glyphs.js";
+import { GLYPH_TYPES } from "../types/glyphs.js";
 
 // Glyph execution states (file-driven)
 export const GLYPH_STATES = {
@@ -17,8 +17,11 @@ export const useTileStore = defineStore("tiles", () => {
   // Map of chains/rows: key is row number, value is chain metadata
   const chains = ref(new Map());
 
-  // Currently selected tile key
+  // Currently selected tile key (single selection)
   const selectedTileKey = ref(null);
+
+  // Multi-selection: Set of selected tile keys
+  const selectedTileKeys = ref(new Set());
 
   // Currently hovered tile key
   const hoveredTileKey = ref(null);
@@ -239,9 +242,155 @@ export const useTileStore = defineStore("tiles", () => {
     return tiles.value.get(selectedTileKey.value) || null;
   });
 
-  // Check if a tile is selected
+  // Check if a tile is selected (single or multi)
   function isSelected(col, row) {
-    return selectedTileKey.value === getTileKey(col, row);
+    const key = getTileKey(col, row);
+    return selectedTileKey.value === key || selectedTileKeys.value.has(key);
+  }
+
+  // Add tile to multi-selection
+  function addToSelection(col, row) {
+    const key = getTileKey(col, row);
+    if (tiles.value.has(key)) {
+      selectedTileKeys.value.add(key);
+    }
+  }
+
+  // Remove tile from multi-selection
+  function removeFromSelection(col, row) {
+    const key = getTileKey(col, row);
+    selectedTileKeys.value.delete(key);
+  }
+
+  // Clear multi-selection
+  function clearMultiSelection() {
+    selectedTileKeys.value.clear();
+  }
+
+  // Select tiles within a bounding box (grid coordinates)
+  function selectTilesInBounds(minCol, minRow, maxCol, maxRow) {
+    clearMultiSelection();
+    for (const [key, tile] of tiles.value) {
+      if (
+        tile.col >= minCol &&
+        tile.col <= maxCol &&
+        tile.row >= minRow &&
+        tile.row <= maxRow
+      ) {
+        selectedTileKeys.value.add(key);
+      }
+    }
+  }
+
+  // Get all multi-selected tiles
+  const multiSelectedTiles = computed(() => {
+    const result = [];
+    for (const key of selectedTileKeys.value) {
+      const tile = tiles.value.get(key);
+      if (tile) result.push(tile);
+    }
+    return result;
+  });
+
+  // Move multiple tiles by delta (preserves relative positions)
+  // relationshipStore is passed in to avoid circular dependency
+  function moveSelectedTiles(deltaCol, deltaRow, relationshipStore = null) {
+    if (selectedTileKeys.value.size === 0) return false;
+
+    const tilesToMove = [];
+    const oldKeys = new Set();
+    const keyMapping = new Map(); // oldKey -> newKey
+
+    // Collect tiles to move and their new positions
+    for (const key of selectedTileKeys.value) {
+      const tile = tiles.value.get(key);
+      if (tile) {
+        const newCol = tile.col + deltaCol;
+        const newRow = tile.row + deltaRow;
+        tilesToMove.push({
+          tile,
+          oldKey: key,
+          newCol,
+          newRow,
+          newKey: getTileKey(newCol, newRow),
+        });
+        oldKeys.add(key);
+        keyMapping.set(key, getTileKey(newCol, newRow));
+      }
+    }
+
+    // Check for collisions with non-selected tiles
+    for (const { newKey } of tilesToMove) {
+      if (tiles.value.has(newKey) && !oldKeys.has(newKey)) {
+        // Collision detected, abort move
+        return false;
+      }
+    }
+
+    // Collect relationships that need to be updated
+    const relationshipsToUpdate = [];
+    if (relationshipStore) {
+      for (const rel of relationshipStore.relationships.values()) {
+        const sourceNeedsUpdate = keyMapping.has(rel.sourceTileKey);
+        const targetNeedsUpdate = keyMapping.has(rel.targetTileKey);
+
+        if (sourceNeedsUpdate || targetNeedsUpdate) {
+          relationshipsToUpdate.push({
+            oldSourceKey: rel.sourceTileKey,
+            oldTargetKey: rel.targetTileKey,
+            newSourceKey: sourceNeedsUpdate
+              ? keyMapping.get(rel.sourceTileKey)
+              : rel.sourceTileKey,
+            newTargetKey: targetNeedsUpdate
+              ? keyMapping.get(rel.targetTileKey)
+              : rel.targetTileKey,
+            edgeType: rel.edgeType,
+            data: rel.data,
+          });
+        }
+      }
+
+      // Remove old relationships
+      for (const relData of relationshipsToUpdate) {
+        relationshipStore.deleteRelationship(
+          relData.oldSourceKey,
+          relData.oldTargetKey
+        );
+      }
+    }
+
+    // Remove tiles from old positions
+    for (const { oldKey } of tilesToMove) {
+      tiles.value.delete(oldKey);
+    }
+
+    // Clear and rebuild selection with new keys
+    selectedTileKeys.value.clear();
+
+    // Add tiles at new positions
+    for (const { tile, newCol, newRow, newKey } of tilesToMove) {
+      tile.col = newCol;
+      tile.row = newRow;
+      tile.id = newKey;
+      tiles.value.set(newKey, tile);
+      selectedTileKeys.value.add(newKey);
+    }
+
+    // Recreate relationships with updated keys
+    if (relationshipStore) {
+      for (const relData of relationshipsToUpdate) {
+        const newRel = relationshipStore.createRelationship(
+          relData.newSourceKey,
+          relData.newTargetKey,
+          relData.edgeType
+        );
+        if (newRel && relData.data) {
+          Object.assign(newRel.data, relData.data);
+        }
+      }
+    }
+
+    return true;
   }
 
   // Check if a tile is hovered
@@ -309,6 +458,7 @@ export const useTileStore = defineStore("tiles", () => {
     tiles,
     chains,
     selectedTileKey,
+    selectedTileKeys,
     hoveredTileKey,
 
     // Computed
@@ -317,6 +467,7 @@ export const useTileStore = defineStore("tiles", () => {
     allChains,
     pendingTiles,
     completeTiles,
+    multiSelectedTiles,
 
     // Methods
     getTileKey,
@@ -340,5 +491,11 @@ export const useTileStore = defineStore("tiles", () => {
     deleteTile,
     clearTiles,
     initLoginFlowDemo,
+    // Multi-selection
+    addToSelection,
+    removeFromSelection,
+    clearMultiSelection,
+    selectTilesInBounds,
+    moveSelectedTiles,
   };
 });

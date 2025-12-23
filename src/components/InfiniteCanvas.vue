@@ -6,12 +6,27 @@ import {
   useRelationshipStore,
   useUIStore,
 } from "../stores";
+import { useSelection } from "../composables";
 import { GLYPH_STATES } from "../stores/tiles";
 
 const canvasStore = useCanvasStore();
 const tileStore = useTileStore();
 const relationshipStore = useRelationshipStore();
 const uiStore = useUIStore();
+
+// Multi-selection and drag-to-move composable
+const {
+  isSelecting,
+  isDraggingTiles,
+  selectionBox,
+  startSelection,
+  updateSelection,
+  endSelection,
+  startDragging,
+  updateDragging,
+  endDragging,
+  cancelAll: cancelSelection,
+} = useSelection(canvasStore, tileStore, relationshipStore);
 
 const canvasRef = ref(null);
 const lastMousePos = ref({ x: 0, y: 0 });
@@ -44,6 +59,11 @@ const visibleTiles = computed(() => {
     // Check if the chain (row) is fully active
     const chainActive = tileStore.isChainActive(tile.row);
 
+    // Check multi-selection
+    const isMultiSelected = tileStore.selectedTileKeys.has(
+      tileStore.getTileKey(tile.col, tile.row)
+    );
+
     result.push({
       ...tile,
       screenX: screenPos.x,
@@ -52,6 +72,7 @@ const visibleTiles = computed(() => {
       height: canvasStore.scaledTileHeight,
       isSelected: tileStore.isSelected(tile.col, tile.row),
       isHovered: tileStore.isHovered(tile.col, tile.row),
+      isMultiSelected,
       // State-driven properties
       isComplete,
       isPending,
@@ -174,16 +195,20 @@ function handleMouseDown(e) {
     canvasStore.isPanning = true;
     lastMousePos.value = { x: e.clientX, y: e.clientY };
   } else if (e.button === 0) {
-    // Left click on canvas background - deselect
-    // (tile/badge clicks are handled by their own handlers)
+    // Left click on canvas background
     const worldPos = canvasStore.screenToWorld(e.clientX, e.clientY);
     const gridPos = canvasStore.worldToGrid(worldPos.x, worldPos.y);
 
-    // Check if clicking on empty space
+    // Check if clicking on empty space - start selection box
     if (!tileStore.hasTile(gridPos.col, gridPos.row)) {
+      // Clear previous selections
       tileStore.deselectTile();
+      tileStore.clearMultiSelection();
       relationshipStore.deselectRelationship();
       uiStore.closeDrawer();
+
+      // Start selection box
+      startSelection(e.clientX, e.clientY);
     }
   }
 }
@@ -194,17 +219,24 @@ function handleMouseMove(e) {
     const deltaY = e.clientY - lastMousePos.value.y;
     canvasStore.pan(deltaX, deltaY);
     lastMousePos.value = { x: e.clientX, y: e.clientY };
+  } else if (isSelecting.value) {
+    updateSelection(e.clientX, e.clientY);
+  } else if (isDraggingTiles.value) {
+    updateDragging(e.clientX, e.clientY);
   }
 }
 
 function handleMouseUp(e) {
   if (e.button === 1 || e.button === 0) {
     canvasStore.isPanning = false;
+    endSelection();
+    endDragging();
   }
 }
 
 function handleMouseLeave() {
   canvasStore.isPanning = false;
+  cancelSelection();
   tileStore.setHoveredTile(null, null);
   relationshipStore.setHoveredRelationship(null, null);
 }
@@ -219,6 +251,17 @@ function handleTileClick(tile, e) {
   tileStore.selectTile(tile.col, tile.row);
   uiStore.openDrawer();
   uiStore.setDrawerMode("tile");
+}
+
+function handleTileMouseDown(tile, e) {
+  if (!tile.isInteractive) return;
+
+  e.stopPropagation();
+
+  // If tile is part of multi-selection, start dragging
+  if (tile.isMultiSelected && tileStore.selectedTileKeys.size > 0) {
+    startDragging(e.clientX, e.clientY);
+  }
 }
 
 function handleTileHover(tile) {
@@ -267,6 +310,7 @@ function handleKeyDown(e) {
 
   if (e.code === "Escape") {
     tileStore.deselectTile();
+    tileStore.clearMultiSelection();
     relationshipStore.deselectRelationship();
     uiStore.closeDrawer();
   }
@@ -353,6 +397,18 @@ onUnmounted(() => {
         stroke-width="1"
       />
     </svg>
+
+    <!-- Selection Box Layer -->
+    <div
+      v-if="selectionBox"
+      class="absolute border-2 border-indigo-500 bg-indigo-500/10 pointer-events-none z-50"
+      :style="{
+        left: selectionBox.left + 'px',
+        top: selectionBox.top + 'px',
+        width: selectionBox.width + 'px',
+        height: selectionBox.height + 'px',
+      }"
+    ></div>
 
     <!-- Connection Lines Layer (behind badges) -->
     <svg class="absolute inset-0 w-full h-full pointer-events-none">
@@ -457,6 +513,8 @@ onUnmounted(() => {
           tile.isInteractive ? 'pointer-events-auto' : 'pointer-events-none',
           tile.isSelected
             ? 'ring-2 ring-offset-2 ring-offset-canvas-bg shadow-lg'
+            : tile.isMultiSelected
+            ? 'ring-2 ring-offset-1 ring-offset-canvas-bg ring-indigo-500 shadow-lg'
             : tile.isHovered
             ? 'shadow-md'
             : '',
@@ -469,17 +527,29 @@ onUnmounted(() => {
           backgroundColor: tile.typeInfo?.bgColor || '#252538',
           borderColor: tile.isSelected
             ? tile.typeInfo?.color || '#6366f1'
+            : tile.isMultiSelected
+            ? '#6366f1'
             : tile.isHovered
             ? tile.typeInfo?.color + '80'
             : tile.typeInfo?.color + '40' || '#4a4a6a',
           '--ring-color': tile.typeInfo?.color || '#6366f1',
           transform:
-            tile.isHovered && !tile.isSelected ? 'scale(1.02)' : 'scale(1)',
+            tile.isHovered && !tile.isSelected && !tile.isMultiSelected
+              ? 'scale(1.02)'
+              : 'scale(1)',
           // State-driven opacity
           opacity: tile.isComplete ? 1 : 0.35,
-          cursor: tile.isInteractive ? 'pointer' : 'default',
+          cursor:
+            tile.isMultiSelected && isDraggingTiles
+              ? 'grabbing'
+              : tile.isMultiSelected
+              ? 'grab'
+              : tile.isInteractive
+              ? 'pointer'
+              : 'default',
         }"
         @click="handleTileClick(tile, $event)"
+        @mousedown="handleTileMouseDown(tile, $event)"
         @mouseenter="handleTileHover(tile)"
         @mouseleave="handleTileLeave"
       >
@@ -619,8 +689,13 @@ onUnmounted(() => {
         active)
       </div>
       <div>Relationships: {{ relationshipStore.allRelationships.length }}</div>
+      <div v-if="tileStore.selectedTileKeys.size > 0" class="text-indigo-400">
+        Selected: {{ tileStore.selectedTileKeys.size }} tiles
+      </div>
       <div class="text-ui-textMuted/50 mt-2 text-[10px]">
         Space+Drag to pan • Scroll to zoom
+        <br />
+        Drag to select • Drag selection to move
       </div>
     </div>
 
