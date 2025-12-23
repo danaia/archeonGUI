@@ -112,16 +112,58 @@ class ArcheonWatcher {
     this.stop();
     this.projectPath = projectPath;
     const archeonDir = path.join(projectPath, "archeon");
+    let archeonDirExists = false;
     try {
       await fs.access(archeonDir);
+      archeonDirExists = true;
     } catch {
-      return { success: false, error: "archeon/ directory not found" };
+      archeonDirExists = false;
     }
-    const initialIndex = await this.readIndexFile(projectPath);
-    const initialArcon = await this.readArconFile(projectPath);
-    this.watcher = chokidar.watch(archeonDir, {
+    let initialIndex = {
+      success: false,
+      error: "archeon/ directory not found"
+    };
+    let initialArcon = {
+      success: false,
+      error: "archeon/ directory not found"
+    };
+    if (archeonDirExists) {
+      initialIndex = await this.readIndexFile(projectPath);
+      initialArcon = await this.readArconFile(projectPath);
+    }
+    this.rootWatcher = chokidar.watch(projectPath, {
       persistent: true,
       ignoreInitial: true,
+      depth: 0
+      // Only watch immediate children
+    });
+    this.rootWatcher.on("addDir", async (dirPath) => {
+      if (path.basename(dirPath) === "archeon") {
+        await this.startArcheonWatcher(projectPath);
+      }
+    });
+    if (archeonDirExists) {
+      await this.startArcheonWatcher(projectPath);
+    }
+    return {
+      success: true,
+      initialIndex,
+      initialArcon
+    };
+  }
+  /**
+   * Start watching the archeon directory for file changes
+   * @param {string} projectPath - Root path of the project
+   */
+  async startArcheonWatcher(projectPath) {
+    const archeonDir = path.join(projectPath, "archeon");
+    if (this.watcher) {
+      await this.watcher.close();
+    }
+    this.watcher = chokidar.watch(archeonDir, {
+      persistent: true,
+      ignoreInitial: false,
+      // Process existing files on start
       awaitWriteFinish: {
         stabilityThreshold: 300,
         pollInterval: 100
@@ -158,11 +200,6 @@ class ArcheonWatcher {
     this.watcher.on("error", (error) => {
       console.error("Archeon watcher error:", error);
     });
-    return {
-      success: true,
-      initialIndex,
-      initialArcon
-    };
   }
   /**
    * Read and parse ARCHEON.index.json
@@ -285,6 +322,10 @@ class ArcheonWatcher {
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;
+    }
+    if (this.rootWatcher) {
+      this.rootWatcher.close();
+      this.rootWatcher = null;
     }
     this.projectPath = null;
   }

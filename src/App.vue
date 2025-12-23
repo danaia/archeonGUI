@@ -17,6 +17,9 @@ const isElectron = computed(() => !!window.electronAPI);
 const projectName = computed(() => projectStore.projectName);
 const hasProject = computed(() => !!projectStore.projectPath);
 
+// Display path is directly from the store (which is initialized from localStorage)
+const displayPath = computed(() => projectStore.projectPath);
+
 // Global keyboard shortcuts
 function handleGlobalKeydown(e) {
   // Backtick to toggle terminal
@@ -50,13 +53,25 @@ async function handleOpenProject() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener("keydown", handleGlobalKeydown);
   uiStore.setFocus("canvas");
 
   // Initialize archeon sync if in Electron
   if (isElectron.value) {
     initArcheonSync();
+
+    // Try to restore last project from localStorage
+    const restored = await projectStore.restoreLastProject();
+    if (restored.success) {
+      // Sync restored project data to grid
+      if (projectStore.arconData?.chains) {
+        syncChainsToTiles(projectStore.arconData.chains);
+      }
+      if (projectStore.indexData) {
+        confirmGlyphsFromIndex(projectStore.indexData);
+      }
+    }
   }
 });
 
@@ -101,8 +116,18 @@ onUnmounted(() => {
         <span v-else class="text-sm text-ui-textMuted"> Archeon GUI </span>
       </div>
 
-      <div class="text-xs text-ui-textMuted app-no-drag">
-        <kbd class="px-1.5 py-0.5 bg-ui-bgLight rounded">⌘O</kbd> Open
+      <div class="flex items-center gap-4 app-no-drag">
+        <!-- Project path - always show if we have a saved path -->
+        <span
+          v-if="displayPath"
+          class="text-[11px] text-gray-500 truncate max-w-[300px] opacity-60"
+          :title="displayPath"
+        >
+          {{ displayPath }}
+        </span>
+        <div class="text-xs text-ui-textMuted">
+          <kbd class="px-1.5 py-0.5 bg-ui-bgLight rounded">⌘O</kbd> Open
+        </div>
       </div>
     </div>
 

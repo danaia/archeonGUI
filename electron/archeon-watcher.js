@@ -21,21 +21,72 @@ export class ArcheonWatcher {
     this.projectPath = projectPath;
     const archeonDir = path.join(projectPath, "archeon");
 
+    let archeonDirExists = false;
     try {
-      // Verify archeon directory exists
       await fs.access(archeonDir);
+      archeonDirExists = true;
     } catch {
-      return { success: false, error: "archeon/ directory not found" };
+      // archeon/ directory doesn't exist yet - we'll watch for it
+      archeonDirExists = false;
     }
 
-    // Read initial data
-    const initialIndex = await this.readIndexFile(projectPath);
-    const initialArcon = await this.readArconFile(projectPath);
+    // Read initial data if directory exists
+    let initialIndex = {
+      success: false,
+      error: "archeon/ directory not found",
+    };
+    let initialArcon = {
+      success: false,
+      error: "archeon/ directory not found",
+    };
 
-    // Set up watcher
-    this.watcher = chokidar.watch(archeonDir, {
+    if (archeonDirExists) {
+      initialIndex = await this.readIndexFile(projectPath);
+      initialArcon = await this.readArconFile(projectPath);
+    }
+
+    // Watch the project root for archeon directory creation
+    this.rootWatcher = chokidar.watch(projectPath, {
       persistent: true,
       ignoreInitial: true,
+      depth: 0, // Only watch immediate children
+    });
+
+    this.rootWatcher.on("addDir", async (dirPath) => {
+      if (path.basename(dirPath) === "archeon") {
+        // archeon directory was created - start watching it
+        await this.startArcheonWatcher(projectPath);
+      }
+    });
+
+    // If archeon dir exists, start watching it immediately
+    if (archeonDirExists) {
+      await this.startArcheonWatcher(projectPath);
+    }
+
+    return {
+      success: true,
+      initialIndex,
+      initialArcon,
+    };
+  }
+
+  /**
+   * Start watching the archeon directory for file changes
+   * @param {string} projectPath - Root path of the project
+   */
+  async startArcheonWatcher(projectPath) {
+    const archeonDir = path.join(projectPath, "archeon");
+
+    // Stop existing archeon watcher if any
+    if (this.watcher) {
+      await this.watcher.close();
+    }
+
+    // Set up watcher for archeon directory
+    this.watcher = chokidar.watch(archeonDir, {
+      persistent: true,
+      ignoreInitial: false, // Process existing files on start
       awaitWriteFinish: {
         stabilityThreshold: 300,
         pollInterval: 100,
@@ -77,12 +128,6 @@ export class ArcheonWatcher {
     this.watcher.on("error", (error) => {
       console.error("Archeon watcher error:", error);
     });
-
-    return {
-      success: true,
-      initialIndex,
-      initialArcon,
-    };
   }
 
   /**
@@ -230,6 +275,10 @@ export class ArcheonWatcher {
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;
+    }
+    if (this.rootWatcher) {
+      this.rootWatcher.close();
+      this.rootWatcher = null;
     }
     this.projectPath = null;
   }

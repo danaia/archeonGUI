@@ -483,9 +483,9 @@ onUnmounted(() => {
         @mouseenter="handleTileHover(tile)"
         @mouseleave="handleTileLeave"
       >
-        <!-- Spinner overlay for pending/processing tiles -->
+        <!-- Spinner overlay for PROCESSING tiles only (actively being generated) -->
         <div
-          v-if="tile.isPending || tile.isProcessing"
+          v-if="tile.isProcessing"
           class="absolute inset-0 flex items-center justify-center z-10"
         >
           <div

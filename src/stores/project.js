@@ -1,9 +1,12 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
+
+const STORAGE_KEY = "archeon:lastProjectPath";
 
 export const useProjectStore = defineStore("project", () => {
-  // Current project root path
-  const projectPath = ref(null);
+  // Current project root path - try to restore from localStorage
+  const savedPath = localStorage.getItem(STORAGE_KEY);
+  const projectPath = ref(savedPath || null);
 
   // Project name (derived from path)
   const projectName = computed(() => {
@@ -44,33 +47,25 @@ export const useProjectStore = defineStore("project", () => {
         return { success: false, canceled: true };
       }
 
-      if (!result.valid) {
-        error.value = "Selected folder does not contain an archeon/ directory";
-        isLoading.value = false;
-        return { success: false, error: error.value };
-      }
-
-      // Set project path
+      // Always set project path and save to localStorage (even without archeon/)
       projectPath.value = result.path;
+      localStorage.setItem(STORAGE_KEY, result.path);
+      console.log("Project path saved:", result.path);
 
-      // Start watching the archeon directory
+      // Start watching the archeon directory (will handle missing dir gracefully)
       const watchResult = await window.electronAPI.archeonWatch(result.path);
 
-      if (!watchResult.success) {
-        error.value = watchResult.error;
-        isLoading.value = false;
-        return { success: false, error: error.value };
-      }
-
-      // Store initial data - arcon FIRST (defines structure), then index (confirms completion)
-      if (watchResult.initialArcon?.success) {
-        arconData.value = {
-          content: watchResult.initialArcon.content,
-          chains: watchResult.initialArcon.chains,
-        };
-      }
-      if (watchResult.initialIndex?.success) {
-        indexData.value = watchResult.initialIndex.data;
+      if (watchResult.success) {
+        // Store initial data - arcon FIRST (defines structure), then index (confirms completion)
+        if (watchResult.initialArcon?.success) {
+          arconData.value = {
+            content: watchResult.initialArcon.content,
+            chains: watchResult.initialArcon.chains,
+          };
+        }
+        if (watchResult.initialIndex?.success) {
+          indexData.value = watchResult.initialIndex.data;
+        }
       }
 
       isLoading.value = false;
@@ -87,23 +82,25 @@ export const useProjectStore = defineStore("project", () => {
    * @param {string} path - Project root path
    */
   async function setProjectPath(path) {
-    if (!window.electronAPI) return;
+    if (!window.electronAPI) return { success: false };
 
     projectPath.value = path;
+    localStorage.setItem(STORAGE_KEY, path);
+    console.log("Project path set:", path);
     isLoading.value = true;
 
     try {
       const watchResult = await window.electronAPI.archeonWatch(path);
 
       if (watchResult.success) {
-        if (watchResult.initialIndex?.success) {
-          indexData.value = watchResult.initialIndex.data;
-        }
         if (watchResult.initialArcon?.success) {
           arconData.value = {
             content: watchResult.initialArcon.content,
             chains: watchResult.initialArcon.chains,
           };
+        }
+        if (watchResult.initialIndex?.success) {
+          indexData.value = watchResult.initialIndex.data;
         }
       }
     } catch (err) {
@@ -111,6 +108,7 @@ export const useProjectStore = defineStore("project", () => {
     }
 
     isLoading.value = false;
+    return { success: true, path };
   }
 
   /**
@@ -148,6 +146,19 @@ export const useProjectStore = defineStore("project", () => {
     indexData.value = null;
     arconData.value = null;
     error.value = null;
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  /**
+   * Try to restore last project from localStorage on app start
+   */
+  async function restoreLastProject() {
+    const savedPath = localStorage.getItem(STORAGE_KEY);
+    if (savedPath && window.electronAPI) {
+      await setProjectPath(savedPath);
+      return { success: true, path: savedPath };
+    }
+    return { success: false };
   }
 
   /**
@@ -186,5 +197,6 @@ export const useProjectStore = defineStore("project", () => {
     updateIndexData,
     updateArconData,
     closeProject,
+    restoreLastProject,
   };
 });

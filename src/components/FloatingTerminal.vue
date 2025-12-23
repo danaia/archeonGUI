@@ -94,7 +94,9 @@ async function initTerminal() {
 async function spawnPty() {
   if (!window.electronAPI) return;
 
-  const cwd = projectStore.projectPath || undefined;
+  // Get cwd from projectStore, or fall back to localStorage directly
+  const savedPath = localStorage.getItem("archeon:lastProjectPath");
+  const cwd = projectStore.projectPath || savedPath || undefined;
   const { cols, rows } = fitAddon.proposeDimensions() || { cols: 80, rows: 24 };
 
   try {
@@ -246,6 +248,18 @@ watch(isExpanded, (expanded) => {
     // destroyTerminal();
   }
 });
+
+// Watch for project path changes - cd to new project directory
+watch(
+  () => projectStore.projectPath,
+  (newPath, oldPath) => {
+    if (newPath && newPath !== oldPath && ptyId !== null && terminal) {
+      // Send cd command to terminal to change to project directory
+      const cdCommand = `cd "${newPath}" && clear\n`;
+      window.electronAPI?.ptyWrite(ptyId, cdCommand);
+    }
+  }
+);
 
 // Fit terminal on resize
 watch(
