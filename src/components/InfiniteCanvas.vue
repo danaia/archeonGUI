@@ -732,26 +732,25 @@ onUnmounted(() => {
 
     <!-- Canvas Info Overlay -->
     <div
-      class="absolute top-4 left-4 bg-ui-bg/90 backdrop-blur-sm rounded-lg px-4 py-3 text-xs text-ui-textMuted pointer-events-none"
+      class="absolute top-[50px] left-3 flex items-center gap-3 bg-ui-bg/40 backdrop-blur-sm rounded px-3 py-1.5 text-[10px] text-ui-textMuted/70 pointer-events-none"
     >
-      <div class="font-semibold text-ui-text mb-1">Archeon Canvas</div>
-      <div>Zoom: {{ (canvasStore.zoom * 100).toFixed(0) }}%</div>
-      <div>Chains: {{ tileStore.allChains.length }}</div>
-      <div>
-        Glyphs: {{ tileStore.allTiles.length }} ({{
-          tileStore.completeTiles.length
+      <span>{{ (canvasStore.zoom * 100).toFixed(0) }}%</span>
+      <span class="opacity-40">•</span>
+      <span>{{ tileStore.allChains.length }} chains</span>
+      <span class="opacity-40">•</span>
+      <span
+        >{{ tileStore.completeTiles.length }}/{{
+          tileStore.allTiles.length
         }}
-        active)
-      </div>
-      <div>Relationships: {{ relationshipStore.allRelationships.length }}</div>
-      <div v-if="tileStore.selectedTileKeys.size > 0" class="text-indigo-400">
-        Selected: {{ tileStore.selectedTileKeys.size }} tiles
-      </div>
-      <div class="text-ui-textMuted/50 mt-2 text-[10px]">
-        Space+Drag to pan • Scroll to zoom
-        <br />
-        Drag to select • Drag selection to move
-      </div>
+        glyphs</span
+      >
+      <span class="opacity-40">•</span>
+      <span>{{ relationshipStore.allRelationships.length }} rels</span>
+      <span
+        v-if="tileStore.selectedTileKeys.size > 0"
+        class="text-indigo-400/80"
+        >• {{ tileStore.selectedTileKeys.size }} sel</span
+      >
     </div>
 
     <!-- Legend -->
