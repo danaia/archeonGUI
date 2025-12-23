@@ -2,9 +2,20 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { GLYPH_TYPES, EDGE_TYPES } from "../types/glyphs.js";
 
+// Glyph execution states (file-driven)
+export const GLYPH_STATES = {
+  PENDING: "pending", // Exists in .arcon, not yet in index
+  PROCESSING: "processing", // Being generated
+  COMPLETE: "complete", // Confirmed in index.json
+  DRIFT: "drift", // In arcon but missing from index after timeout
+};
+
 export const useTileStore = defineStore("tiles", () => {
   // Map of tiles: key is "col,row", value is tile data
   const tiles = ref(new Map());
+
+  // Map of chains/rows: key is row number, value is chain metadata
+  const chains = ref(new Map());
 
   // Currently selected tile key
   const selectedTileKey = ref(null);
@@ -76,6 +87,8 @@ export const useTileStore = defineStore("tiles", () => {
       intent: tileData.intent || null,
       chain: tileData.chain || null,
       sections: tileData.sections || [],
+      // Glyph execution state (file-driven)
+      state: tileData.state || GLYPH_STATES.PENDING,
       // Custom styling (optional override)
       color: tileData.color || typeInfo.color,
       icon: tileData.icon || typeInfo.icon,
@@ -86,6 +99,98 @@ export const useTileStore = defineStore("tiles", () => {
 
     tiles.value.set(key, tile);
     return tile;
+  }
+
+  /**
+   * Update glyph state (pending -> processing -> complete)
+   * @param {number} col - Column position
+   * @param {number} row - Row position
+   * @param {string} state - New state from GLYPH_STATES
+   */
+  function updateGlyphState(col, row, state) {
+    const tile = getTile(col, row);
+    if (tile) {
+      tile.state = state;
+    }
+  }
+
+  /**
+   * Update glyph state by label (glyph key like "STO:Auth")
+   * @param {string} label - Glyph key
+   * @param {string} state - New state
+   * @param {Object} indexData - Optional data from index.json
+   */
+  function updateGlyphStateByLabel(label, state, indexData = null) {
+    for (const [key, tile] of tiles.value) {
+      if (tile.label === label) {
+        tile.state = state;
+        // Also update with index data if provided
+        if (indexData) {
+          tile.file = indexData.file || tile.file;
+          tile.intent = indexData.intent || tile.intent;
+          tile.sections = indexData.sections || tile.sections;
+        }
+        return tile;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Create a chain/row entry
+   * @param {number} row - Row number
+   * @param {Object} chainData - Chain metadata
+   */
+  function createChain(row, chainData) {
+    chains.value.set(row, {
+      row,
+      version: chainData.version || null,
+      raw: chainData.raw || "",
+      glyphCount: chainData.glyphCount || 0,
+      confirmedCount: 0,
+      isActive: false,
+      createdAt: Date.now(),
+    });
+  }
+
+  /**
+   * Update chain activation status
+   * @param {number} row - Row number
+   */
+  function updateChainActivation(row) {
+    const chain = chains.value.get(row);
+    if (!chain) return;
+
+    // Count confirmed glyphs in this row
+    let confirmedCount = 0;
+    for (const [key, tile] of tiles.value) {
+      if (tile.row === row && tile.state === GLYPH_STATES.COMPLETE) {
+        confirmedCount++;
+      }
+    }
+
+    chain.confirmedCount = confirmedCount;
+    chain.isActive =
+      confirmedCount === chain.glyphCount && chain.glyphCount > 0;
+  }
+
+  /**
+   * Check if a row/chain is fully active
+   * @param {number} row - Row number
+   * @returns {boolean}
+   */
+  function isChainActive(row) {
+    const chain = chains.value.get(row);
+    return chain?.isActive || false;
+  }
+
+  /**
+   * Get chain metadata for a row
+   * @param {number} row - Row number
+   * @returns {Object|null}
+   */
+  function getChain(row) {
+    return chains.value.get(row) || null;
   }
 
   // Get tile at position (doesn't create)
@@ -164,12 +269,25 @@ export const useTileStore = defineStore("tiles", () => {
   // Clear all tiles
   function clearTiles() {
     tiles.value.clear();
+    chains.value.clear();
     selectedTileKey.value = null;
     hoveredTileKey.value = null;
   }
 
   // Get all tiles as array
   const allTiles = computed(() => Array.from(tiles.value.values()));
+
+  // Get all chains as array
+  const allChains = computed(() => Array.from(chains.value.values()));
+
+  // Get tiles by state
+  const pendingTiles = computed(() =>
+    allTiles.value.filter((t) => t.state === GLYPH_STATES.PENDING)
+  );
+
+  const completeTiles = computed(() =>
+    allTiles.value.filter((t) => t.state === GLYPH_STATES.COMPLETE)
+  );
 
   // Initialize demo: Full-stack Login Flow (horizontal layout)
   function initLoginFlowDemo() {
@@ -189,26 +307,36 @@ export const useTileStore = defineStore("tiles", () => {
   return {
     // State
     tiles,
+    chains,
     selectedTileKey,
     hoveredTileKey,
 
     // Computed
     selectedTile,
     allTiles,
+    allChains,
+    pendingTiles,
+    completeTiles,
 
     // Methods
     getTileKey,
     parseTileKey,
     createGlyph,
     createTile,
+    createChain,
     getTile,
+    getChain,
     hasTile,
     selectTile,
     deselectTile,
     setHoveredTile,
     isSelected,
     isHovered,
+    isChainActive,
     updateTileData,
+    updateGlyphState,
+    updateGlyphStateByLabel,
+    updateChainActivation,
     deleteTile,
     clearTiles,
     initLoginFlowDemo,

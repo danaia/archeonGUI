@@ -6,6 +6,7 @@ import {
   useRelationshipStore,
   useUIStore,
 } from "../stores";
+import { GLYPH_STATES } from "../stores/tiles";
 
 const canvasStore = useCanvasStore();
 const tileStore = useTileStore();
@@ -34,6 +35,15 @@ const visibleTiles = computed(() => {
     const worldPos = canvasStore.gridToWorld(tile.col, tile.row);
     const screenPos = canvasStore.worldToScreen(worldPos.x, worldPos.y);
 
+    // Determine if tile is interactive based on state
+    const isComplete = tile.state === GLYPH_STATES.COMPLETE;
+    const isPending = tile.state === GLYPH_STATES.PENDING;
+    const isProcessing = tile.state === GLYPH_STATES.PROCESSING;
+    const isDrift = tile.state === GLYPH_STATES.DRIFT;
+
+    // Check if the chain (row) is fully active
+    const chainActive = tileStore.isChainActive(tile.row);
+
     result.push({
       ...tile,
       screenX: screenPos.x,
@@ -42,6 +52,14 @@ const visibleTiles = computed(() => {
       height: canvasStore.scaledTileHeight,
       isSelected: tileStore.isSelected(tile.col, tile.row),
       isHovered: tileStore.isHovered(tile.col, tile.row),
+      // State-driven properties
+      isComplete,
+      isPending,
+      isProcessing,
+      isDrift,
+      chainActive,
+      // Only interactive when complete
+      isInteractive: isComplete,
     });
   }
 
@@ -193,6 +211,9 @@ function handleMouseLeave() {
 
 // Tile interaction handlers
 function handleTileClick(tile, e) {
+  // Only allow interaction with complete tiles
+  if (!tile.isInteractive) return;
+
   e.stopPropagation();
   relationshipStore.deselectRelationship();
   tileStore.selectTile(tile.col, tile.row);
@@ -201,6 +222,8 @@ function handleTileClick(tile, e) {
 }
 
 function handleTileHover(tile) {
+  // Only show hover state for complete tiles
+  if (!tile.isInteractive) return;
   tileStore.setHoveredTile(tile.col, tile.row);
 }
 
@@ -429,8 +452,9 @@ onUnmounted(() => {
       <div
         v-for="tile in visibleTiles"
         :key="tile.id"
-        class="absolute pointer-events-auto transition-all duration-150 ease-out rounded-lg border-2 overflow-hidden"
+        class="absolute transition-all duration-150 ease-out rounded-lg border-2 overflow-hidden"
         :class="[
+          tile.isInteractive ? 'pointer-events-auto' : 'pointer-events-none',
           tile.isSelected
             ? 'ring-2 ring-offset-2 ring-offset-canvas-bg shadow-lg'
             : tile.isHovered
@@ -451,11 +475,44 @@ onUnmounted(() => {
           '--ring-color': tile.typeInfo?.color || '#6366f1',
           transform:
             tile.isHovered && !tile.isSelected ? 'scale(1.02)' : 'scale(1)',
+          // State-driven opacity
+          opacity: tile.isComplete ? 1 : 0.35,
+          cursor: tile.isInteractive ? 'pointer' : 'default',
         }"
         @click="handleTileClick(tile, $event)"
         @mouseenter="handleTileHover(tile)"
         @mouseleave="handleTileLeave"
       >
+        <!-- Spinner overlay for pending/processing tiles -->
+        <div
+          v-if="tile.isPending || tile.isProcessing"
+          class="absolute inset-0 flex items-center justify-center z-10"
+        >
+          <div
+            class="animate-spin rounded-full border-2 border-t-transparent"
+            :style="{
+              width: Math.max(16, 24 * canvasStore.zoom) + 'px',
+              height: Math.max(16, 24 * canvasStore.zoom) + 'px',
+              borderColor: tile.typeInfo?.color + '40',
+              borderTopColor: 'transparent',
+            }"
+          ></div>
+        </div>
+
+        <!-- Drift warning badge -->
+        <div
+          v-if="tile.isDrift"
+          class="absolute top-1 right-1 z-10 flex items-center justify-center rounded-full bg-amber-500/80"
+          :style="{
+            width: Math.max(14, 18 * canvasStore.zoom) + 'px',
+            height: Math.max(14, 18 * canvasStore.zoom) + 'px',
+            fontSize: Math.max(10, 12 * canvasStore.zoom) + 'px',
+          }"
+          title="Index not updated"
+        >
+          ⚠
+        </div>
+
         <!-- Glyph Header -->
         <div
           class="px-2 py-1 flex items-center gap-2"
@@ -554,7 +611,13 @@ onUnmounted(() => {
     >
       <div class="font-semibold text-ui-text mb-1">Archeon Canvas</div>
       <div>Zoom: {{ (canvasStore.zoom * 100).toFixed(0) }}%</div>
-      <div>Tiles: {{ tileStore.allTiles.length }}</div>
+      <div>Chains: {{ tileStore.allChains.length }}</div>
+      <div>
+        Glyphs: {{ tileStore.allTiles.length }} ({{
+          tileStore.completeTiles.length
+        }}
+        active)
+      </div>
       <div>Relationships: {{ relationshipStore.allRelationships.length }}</div>
       <div class="text-ui-textMuted/50 mt-2 text-[10px]">
         Space+Drag to pan • Scroll to zoom

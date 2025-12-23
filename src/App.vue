@@ -5,8 +5,8 @@ import { useTerminalStore, useUIStore, useProjectStore } from "./stores";
 import {
   initArcheonSync,
   reloadFromProject,
-  syncGlyphsToTiles,
-  syncChainsToRelationships,
+  syncChainsToTiles,
+  confirmGlyphsFromIndex,
 } from "./services/archeon-sync";
 
 const terminalStore = useTerminalStore();
@@ -40,12 +40,12 @@ async function handleOpenProject() {
 
   const result = await projectStore.openProject();
   if (result.success) {
-    // Sync data to grid
-    if (projectStore.indexData) {
-      syncGlyphsToTiles(projectStore.indexData);
-    }
+    // Sync data to grid - arcon FIRST (structure), then index (confirmation)
     if (projectStore.arconData?.chains) {
-      syncChainsToRelationships(projectStore.arconData.chains);
+      syncChainsToTiles(projectStore.arconData.chains);
+    }
+    if (projectStore.indexData) {
+      confirmGlyphsFromIndex(projectStore.indexData);
     }
   }
 }

@@ -62,15 +62,15 @@ export const useProjectStore = defineStore("project", () => {
         return { success: false, error: error.value };
       }
 
-      // Store initial data
-      if (watchResult.initialIndex?.success) {
-        indexData.value = watchResult.initialIndex.data;
-      }
+      // Store initial data - arcon FIRST (defines structure), then index (confirms completion)
       if (watchResult.initialArcon?.success) {
         arconData.value = {
           content: watchResult.initialArcon.content,
           chains: watchResult.initialArcon.chains,
         };
+      }
+      if (watchResult.initialIndex?.success) {
+        indexData.value = watchResult.initialIndex.data;
       }
 
       isLoading.value = false;

@@ -1,13 +1,14 @@
 /**
  * Archeon Sync Service
  *
- * Transforms ARCHEON.index.json glyph data into tile format for the grid,
- * and parses ARCHEON.arcon chains into relationships.
+ * File-Driven Execution Model:
+ * - ARCHEON.arcon = what SHOULD exist (structure, chains, glyphs)
+ * - ARCHEON.index.json = what ACTUALLY exists (confirmed, with file paths)
  *
- * Layout: Horizontal left-to-right on a single row (row 0)
+ * Layout: Each chain is a row, glyphs flow left-to-right starting with NED
  */
 
-import { useTileStore } from "../stores/tiles";
+import { useTileStore, GLYPH_STATES } from "../stores/tiles";
 import { useRelationshipStore } from "../stores/relationships";
 import { useProjectStore } from "../stores/project";
 import { GLYPH_TYPES } from "../types/glyphs";
@@ -23,87 +24,179 @@ export function initArcheonSync() {
 
   const projectStore = useProjectStore();
 
-  // Listen for index file changes
+  // Listen for index file changes - this CONFIRMS glyph completion
   window.electronAPI.onArcheonIndexChanged((data) => {
     projectStore.updateIndexData(data);
     if (data.success) {
-      syncGlyphsToTiles(data.data);
+      // Index changes confirm which glyphs are complete
+      confirmGlyphsFromIndex(data.data);
     }
   });
 
-  // Listen for arcon file changes
+  // Listen for arcon file changes - this DEFINES structure
   window.electronAPI.onArcheonArconChanged((data) => {
     projectStore.updateArconData(data);
     if (data.success) {
-      syncChainsToRelationships(data.chains);
+      // Arcon changes define the structure (pending glyphs)
+      syncChainsToTiles(data.chains);
+      // Then check index for any already-confirmed glyphs
+      if (projectStore.indexData) {
+        confirmGlyphsFromIndex(projectStore.indexData);
+      }
     }
   });
 }
 
 /**
- * Sync glyphs from ARCHEON.index.json to tile store
- * Layout: Horizontal, one row, left to right based on chain order
+ * Sync chains from ARCHEON.arcon to tiles and relationships
+ * Each chain becomes a row. Glyphs flow left-to-right starting with NED.
+ * All glyphs start in PENDING state.
+ *
+ * @param {Array} chains - Parsed chain definitions from arcon
+ */
+export function syncChainsToTiles(chains) {
+  const tileStore = useTileStore();
+  const relationshipStore = useRelationshipStore();
+
+  // Clear existing state
+  tileStore.clearTiles();
+  relationshipStore.clearRelationships();
+
+  if (!chains || chains.length === 0) return;
+
+  // Filter to only versioned chains (the actual glyph chains with @v prefix)
+  const glyphChains = chains.filter(
+    (c) => c.version && c.glyphs && c.glyphs.length > 0
+  );
+
+  // Create tiles for each chain (each chain = 1 row)
+  glyphChains.forEach((chain, rowIndex) => {
+    const glyphs = chain.glyphs;
+
+    // Create chain metadata
+    tileStore.createChain(rowIndex, {
+      version: chain.version,
+      raw: chain.raw,
+      glyphCount: glyphs.length,
+    });
+
+    // Create tiles for each glyph in the chain (left to right)
+    glyphs.forEach((glyph, colIndex) => {
+      const [glyphType, glyphName] = parseGlyphKey(glyph.key);
+      const typeInfo = GLYPH_TYPES[glyphType] || GLYPH_TYPES.FNC;
+
+      const tile = {
+        col: colIndex,
+        row: rowIndex,
+        type: glyphType,
+        name: glyphName,
+        label: glyph.key,
+        // Start in PENDING state - waiting for index confirmation
+        state: GLYPH_STATES.PENDING,
+        // Visual styling from glyph type
+        color: typeInfo.color,
+        icon: typeInfo.icon,
+        layer: typeInfo.layer,
+        // These will be populated from index.json when confirmed
+        file: null,
+        intent: null,
+        sections: [],
+        chain: chain.version,
+      };
+
+      tileStore.createTile(colIndex, rowIndex, tile);
+    });
+
+    // Create relationships between consecutive glyphs in the chain
+    for (let i = 0; i < glyphs.length - 1; i++) {
+      const sourceGlyph = glyphs[i];
+      const targetGlyph = glyphs[i + 1];
+      const sourceKey = tileStore.getTileKey(i, rowIndex);
+      const targetKey = tileStore.getTileKey(i + 1, rowIndex);
+
+      // Determine edge type from the raw chain
+      let edgeType = "FLOW";
+      if (chain.raw) {
+        const edgeMatch = chain.raw.match(
+          new RegExp(`${escapeRegExp(sourceGlyph.key)}\\s*(=>|~>|->)`)
+        );
+        if (edgeMatch) {
+          const edgeSymbol = edgeMatch[1];
+          if (edgeSymbol === "->") edgeType = "BRANCH";
+          else if (edgeSymbol === "~>") edgeType = "REACTIVE";
+        }
+      }
+
+      relationshipStore.createRelationship(sourceKey, targetKey, edgeType);
+    }
+  });
+}
+
+/**
+ * Confirm glyphs from ARCHEON.index.json
+ * This transitions glyphs from PENDING to COMPLETE state.
  *
  * @param {Object} indexData - Parsed ARCHEON.index.json
  */
-export function syncGlyphsToTiles(indexData) {
+export function confirmGlyphsFromIndex(indexData) {
   const tileStore = useTileStore();
-  const projectStore = useProjectStore();
 
-  // Clear existing tiles
+  if (!indexData?.glyphs) return;
+
+  const confirmedGlyphs = indexData.glyphs;
+
+  // For each glyph in the index, find and update the corresponding tile
+  for (const [glyphKey, glyphData] of Object.entries(confirmedGlyphs)) {
+    const tile = tileStore.updateGlyphStateByLabel(
+      glyphKey,
+      GLYPH_STATES.COMPLETE,
+      {
+        file: glyphData.file,
+        intent: glyphData.intent,
+        sections: glyphData.sections,
+      }
+    );
+
+    if (tile) {
+      // Update chain activation status for this row
+      tileStore.updateChainActivation(tile.row);
+    }
+  }
+}
+
+/**
+ * Legacy sync function - maintained for compatibility
+ * @deprecated Use syncChainsToTiles + confirmGlyphsFromIndex instead
+ */
+export function syncGlyphsToTiles(indexData) {
+  // If we have arcon data, use the new flow
+  const projectStore = useProjectStore();
+  if (projectStore.chains.length > 0) {
+    confirmGlyphsFromIndex(indexData);
+    return;
+  }
+
+  // Fallback: create tiles directly from index (old behavior)
+  const tileStore = useTileStore();
   tileStore.clearTiles();
 
   if (!indexData?.glyphs) return;
 
-  const glyphs = indexData.glyphs;
-  const glyphKeys = Object.keys(glyphs);
-
-  // If we have chain data, order by chain sequence
-  let orderedGlyphs = glyphKeys;
-
-  if (projectStore.chains.length > 0) {
-    // Build order from chain definitions
-    const chainOrder = new Map();
-    let position = 0;
-
-    for (const chain of projectStore.chains) {
-      if (chain.glyphs) {
-        for (const glyph of chain.glyphs) {
-          if (!chainOrder.has(glyph.key)) {
-            chainOrder.set(glyph.key, position++);
-          }
-        }
-      }
-    }
-
-    // Sort glyphs by chain order, put unknown ones at the end
-    orderedGlyphs = glyphKeys.sort((a, b) => {
-      const orderA = chainOrder.get(a) ?? 999;
-      const orderB = chainOrder.get(b) ?? 999;
-      return orderA - orderB;
-    });
-  }
-
-  // Create tiles horizontally (row 0, incrementing columns)
-  orderedGlyphs.forEach((glyphKey, index) => {
-    const glyphData = glyphs[glyphKey];
+  Object.entries(indexData.glyphs).forEach(([glyphKey, glyphData], index) => {
     const [glyphType, glyphName] = parseGlyphKey(glyphKey);
-
-    // Get glyph type info from our definitions
     const typeInfo = GLYPH_TYPES[glyphType] || GLYPH_TYPES.FNC;
 
     const tile = {
-      col: index, // Horizontal layout
-      row: 0, // Single row
+      col: index,
+      row: 0,
       type: glyphType,
       name: glyphName,
       label: glyphKey,
-      // Archeon-specific data
       file: glyphData.file,
       intent: glyphData.intent,
       chain: glyphData.chain,
       sections: glyphData.sections || [],
-      // Visual styling from glyph type
+      state: GLYPH_STATES.COMPLETE, // Direct from index = complete
       color: typeInfo.color,
       icon: typeInfo.icon,
       layer: typeInfo.layer,
@@ -111,64 +204,6 @@ export function syncGlyphsToTiles(indexData) {
 
     tileStore.createTile(index, 0, tile);
   });
-}
-
-/**
- * Sync chains from ARCHEON.arcon to relationships
- *
- * @param {Array} chains - Parsed chain definitions
- */
-export function syncChainsToRelationships(chains) {
-  const relationshipStore = useRelationshipStore();
-  const tileStore = useTileStore();
-
-  // Clear existing relationships
-  relationshipStore.clearRelationships();
-
-  if (!chains || chains.length === 0) return;
-
-  // Build a map of glyph keys to tile positions
-  const glyphToTile = new Map();
-  for (const [key, tile] of tileStore.tiles) {
-    glyphToTile.set(tile.label, key);
-  }
-
-  // Process each chain
-  for (const chain of chains) {
-    if (!chain.glyphs || chain.glyphs.length < 2) continue;
-
-    // Create relationships between consecutive glyphs
-    for (let i = 0; i < chain.glyphs.length - 1; i++) {
-      const sourceGlyph = chain.glyphs[i];
-      const targetGlyph = chain.glyphs[i + 1];
-
-      const sourceTileKey = glyphToTile.get(sourceGlyph.key);
-      const targetTileKey = glyphToTile.get(targetGlyph.key);
-
-      if (sourceTileKey && targetTileKey) {
-        // Determine edge type from the raw chain (look for ->, ~>, =>)
-        let edgeType = "FLOW"; // Default
-
-        if (chain.raw) {
-          // Check what edge comes after this glyph
-          const edgeMatch = chain.raw.match(
-            new RegExp(`${escapeRegExp(sourceGlyph.key)}\\s*(=>|~>|->)`)
-          );
-          if (edgeMatch) {
-            const edgeSymbol = edgeMatch[1];
-            if (edgeSymbol === "->") edgeType = "BRANCH";
-            else if (edgeSymbol === "~>") edgeType = "REACTIVE";
-          }
-        }
-
-        relationshipStore.createRelationship(
-          sourceTileKey,
-          targetTileKey,
-          edgeType
-        );
-      }
-    }
-  }
 }
 
 /**
@@ -203,21 +238,21 @@ export async function reloadFromProject() {
 
   if (!projectStore.projectPath || !window.electronAPI) return;
 
-  // Re-read index file
-  const indexResult = await window.electronAPI.archeonReadIndex(
-    projectStore.projectPath
-  );
-  if (indexResult.success) {
-    projectStore.updateIndexData(indexResult);
-    syncGlyphsToTiles(indexResult.data);
-  }
-
-  // Re-read arcon file
+  // Re-read arcon file FIRST (defines structure)
   const arconResult = await window.electronAPI.archeonReadArcon(
     projectStore.projectPath
   );
   if (arconResult.success) {
     projectStore.updateArconData(arconResult);
-    syncChainsToRelationships(arconResult.chains);
+    syncChainsToTiles(arconResult.chains);
+  }
+
+  // Then re-read index file (confirms completion)
+  const indexResult = await window.electronAPI.archeonReadIndex(
+    projectStore.projectPath
+  );
+  if (indexResult.success) {
+    projectStore.updateIndexData(indexResult);
+    confirmGlyphsFromIndex(indexResult.data);
   }
 }
