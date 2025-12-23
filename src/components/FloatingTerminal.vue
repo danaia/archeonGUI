@@ -111,7 +111,9 @@ async function spawnPty() {
     // Listen for PTY exit
     cleanupExitListener = window.electronAPI.onPtyExit(({ id, exitCode }) => {
       if (id === ptyId) {
-        terminal.write(`\r\n\x1b[33mProcess exited with code ${exitCode}\x1b[0m\r\n`);
+        terminal.write(
+          `\r\n\x1b[33mProcess exited with code ${exitCode}\x1b[0m\r\n`
+        );
         ptyId = null;
       }
     });
@@ -122,9 +124,10 @@ async function spawnPty() {
         window.electronAPI.ptyWrite(ptyId, data);
       }
     });
-
   } catch (error) {
-    terminal.write(`\x1b[31mFailed to spawn terminal: ${error.message}\x1b[0m\r\n`);
+    terminal.write(
+      `\x1b[31mFailed to spawn terminal: ${error.message}\x1b[0m\r\n`
+    );
   }
 }
 
@@ -156,7 +159,7 @@ function destroyTerminal() {
 // Resize PTY when terminal dimensions change
 function resizePty() {
   if (!fitAddon || !window.electronAPI || ptyId === null) return;
-  
+
   const dims = fitAddon.proposeDimensions();
   if (dims) {
     window.electronAPI.ptyResize(ptyId, dims.cols, dims.rows);

@@ -346,7 +346,14 @@ onUnmounted(() => {
             </div>
 
             <!-- Archeon Metadata (when file exists) -->
-            <div class="mb-4" v-if="selectedTile.intent || selectedTile.chain || selectedTile.sections?.length">
+            <div
+              class="mb-4"
+              v-if="
+                selectedTile.intent ||
+                selectedTile.chain ||
+                selectedTile.sections?.length
+              "
+            >
               <h4
                 class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
               >
@@ -355,17 +362,21 @@ onUnmounted(() => {
               <div class="bg-ui-bgLight rounded-lg p-3 text-sm space-y-2">
                 <div class="flex justify-between" v-if="selectedTile.intent">
                   <span class="text-ui-textMuted">Intent</span>
-                  <span class="text-ui-text text-right max-w-[200px]">{{ selectedTile.intent }}</span>
+                  <span class="text-ui-text text-right max-w-[200px]">{{
+                    selectedTile.intent
+                  }}</span>
                 </div>
                 <div class="flex justify-between" v-if="selectedTile.chain">
                   <span class="text-ui-textMuted">Chain</span>
-                  <span class="font-mono text-cyan-400">{{ selectedTile.chain }}</span>
+                  <span class="font-mono text-cyan-400">{{
+                    selectedTile.chain
+                  }}</span>
                 </div>
                 <div v-if="selectedTile.sections?.length">
                   <span class="text-ui-textMuted block mb-1">Sections</span>
                   <div class="flex flex-wrap gap-1">
-                    <span 
-                      v-for="section in selectedTile.sections" 
+                    <span
+                      v-for="section in selectedTile.sections"
                       :key="section"
                       class="px-2 py-0.5 rounded text-xs bg-ui-bg text-ui-text"
                     >
@@ -384,7 +395,9 @@ onUnmounted(() => {
                 Source File
               </h4>
               <div class="bg-ui-bgLight rounded-lg p-3">
-                <code class="text-xs text-green-400 break-all">{{ selectedTile.file }}</code>
+                <code class="text-xs text-green-400 break-all">{{
+                  selectedTile.file
+                }}</code>
               </div>
             </div>
 
@@ -394,25 +407,36 @@ onUnmounted(() => {
                 class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider flex items-center justify-between"
               >
                 <span>Code Preview</span>
-                <span class="text-xs font-normal normal-case text-ui-textMuted">{{ fileLanguage }}</span>
+                <span
+                  class="text-xs font-normal normal-case text-ui-textMuted"
+                  >{{ fileLanguage }}</span
+                >
               </h4>
-              
+
               <!-- Loading state -->
-              <div v-if="fileLoading" class="bg-ui-bgLight rounded-lg p-8 flex items-center justify-center">
-                <div class="animate-spin w-6 h-6 border-2 border-ui-textMuted border-t-transparent rounded-full"></div>
+              <div
+                v-if="fileLoading"
+                class="bg-ui-bgLight rounded-lg p-8 flex items-center justify-center"
+              >
+                <div
+                  class="animate-spin w-6 h-6 border-2 border-ui-textMuted border-t-transparent rounded-full"
+                ></div>
               </div>
-              
+
               <!-- Error state -->
-              <div v-else-if="fileError" class="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
+              <div
+                v-else-if="fileError"
+                class="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400"
+              >
                 {{ fileError }}
               </div>
-              
+
               <!-- Monaco container -->
-              <div 
+              <div
                 v-else-if="fileContent !== null"
-                ref="monacoContainerRef" 
+                ref="monacoContainerRef"
                 class="rounded-lg overflow-hidden border border-ui-border"
-                style="height: 400px;"
+                style="height: 400px"
               ></div>
             </div>
 

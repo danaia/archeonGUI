@@ -2,7 +2,12 @@
 import { onMounted, onUnmounted, computed } from "vue";
 import { InfiniteCanvas, SideDrawer, FloatingTerminal } from "./components";
 import { useTerminalStore, useUIStore, useProjectStore } from "./stores";
-import { initArcheonSync, reloadFromProject, syncGlyphsToTiles, syncChainsToRelationships } from "./services/archeon-sync";
+import {
+  initArcheonSync,
+  reloadFromProject,
+  syncGlyphsToTiles,
+  syncChainsToRelationships,
+} from "./services/archeon-sync";
 
 const terminalStore = useTerminalStore();
 const uiStore = useUIStore();
@@ -22,7 +27,7 @@ function handleGlobalKeydown(e) {
       terminalStore.toggle();
     }
   }
-  
+
   // Cmd/Ctrl + O to open project
   if ((e.metaKey || e.ctrlKey) && e.key === "o") {
     e.preventDefault();
@@ -32,7 +37,7 @@ function handleGlobalKeydown(e) {
 
 async function handleOpenProject() {
   if (!isElectron.value) return;
-  
+
   const result = await projectStore.openProject();
   if (result.success) {
     // Sync data to grid
@@ -48,7 +53,7 @@ async function handleOpenProject() {
 onMounted(() => {
   window.addEventListener("keydown", handleGlobalKeydown);
   uiStore.setFocus("canvas");
-  
+
   // Initialize archeon sync if in Electron
   if (isElectron.value) {
     initArcheonSync();
@@ -63,7 +68,7 @@ onUnmounted(() => {
 <template>
   <div class="w-full h-full relative overflow-hidden bg-canvas-bg">
     <!-- Top Bar (when in Electron) -->
-    <div 
+    <div
       v-if="isElectron"
       class="absolute top-0 left-0 right-0 h-10 bg-ui-bg border-b border-ui-border flex items-center px-4 z-30 app-drag"
     >
@@ -72,22 +77,30 @@ onUnmounted(() => {
           @click="handleOpenProject"
           class="px-3 py-1.5 text-xs bg-ui-bgLight hover:bg-tile-borderSelected/20 text-ui-text rounded transition-colors flex items-center gap-2"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+            />
           </svg>
           Open Project
         </button>
       </div>
-      
+
       <div class="flex-1 text-center">
         <span v-if="hasProject" class="text-sm text-ui-text font-medium">
           {{ projectName }}
         </span>
-        <span v-else class="text-sm text-ui-textMuted">
-          Archeon GUI
-        </span>
+        <span v-else class="text-sm text-ui-textMuted"> Archeon GUI </span>
       </div>
-      
+
       <div class="text-xs text-ui-textMuted app-no-drag">
         <kbd class="px-1.5 py-0.5 bg-ui-bgLight rounded">⌘O</kbd> Open
       </div>
