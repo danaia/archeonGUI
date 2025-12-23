@@ -28,7 +28,21 @@ const isExpanded = computed(() => terminalStore.isExpanded);
 const isElectron = computed(() => !!window.electronAPI);
 
 async function initTerminal() {
-  if (!terminalRef.value || terminal) return;
+  if (!terminalRef.value) return;
+
+  // If terminal already exists, just re-fit and scroll to bottom
+  if (terminal) {
+    await nextTick();
+    try {
+      fitAddon?.fit();
+      resizePty();
+      terminal.scrollToBottom();
+      terminal.focus();
+    } catch (e) {
+      console.warn("Terminal re-init skipped:", e.message);
+    }
+    return;
+  }
 
   terminal = new Terminal({
     theme: {
@@ -61,6 +75,7 @@ async function initTerminal() {
     cursorBlink: true,
     cursorStyle: "block",
     allowProposedApi: true,
+    scrollback: 5000,
   });
 
   fitAddon = new FitAddon();
@@ -107,6 +122,8 @@ async function spawnPty() {
     cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
       if (id === ptyId && terminal) {
         terminal.write(data);
+        // Auto-scroll to bottom to keep cursor visible
+        terminal.scrollToBottom();
       }
     });
 
@@ -160,11 +177,19 @@ function destroyTerminal() {
 
 // Resize PTY when terminal dimensions change
 function resizePty() {
-  if (!fitAddon || !window.electronAPI || ptyId === null) return;
+  if (!fitAddon || !window.electronAPI || ptyId === null || !terminal) return;
 
-  const dims = fitAddon.proposeDimensions();
-  if (dims) {
-    window.electronAPI.ptyResize(ptyId, dims.cols, dims.rows);
+  try {
+    const dims = fitAddon.proposeDimensions();
+    // Only resize if we have valid positive dimensions
+    if (dims && dims.cols > 0 && dims.rows > 0) {
+      window.electronAPI.ptyResize(ptyId, dims.cols, dims.rows);
+      // Scroll to bottom after resize to keep cursor visible
+      terminal.scrollToBottom();
+    }
+  } catch (e) {
+    // Ignore resize errors when terminal isn't ready
+    console.warn("Terminal resize skipped:", e.message);
   }
 }
 
@@ -239,13 +264,25 @@ function handleBlur() {
 // Watch for expansion to initialize terminal
 watch(isExpanded, (expanded) => {
   if (expanded) {
-    nextTick(() => {
-      initTerminal();
+    nextTick(async () => {
+      // Small delay to allow v-show to fully render dimensions
+      await new Promise((r) => setTimeout(r, 50));
+      await initTerminal();
       handleFocus();
+      // Ensure scroll to bottom after rendering is complete
+      setTimeout(() => {
+        if (terminal && fitAddon) {
+          try {
+            fitAddon.fit();
+            resizePty();
+            terminal.scrollToBottom();
+            terminal.focus();
+          } catch (e) {
+            console.warn("Terminal fit skipped:", e.message);
+          }
+        }
+      }, 100);
     });
-  } else {
-    // Optionally keep PTY alive in background, or destroy
-    // destroyTerminal();
   }
 });
 
@@ -273,9 +310,15 @@ watch(
 );
 
 onMounted(() => {
-  if (isExpanded.value) {
-    nextTick(() => initTerminal());
-  }
+  // Initialize terminal immediately since v-show keeps DOM alive
+  nextTick(async () => {
+    // Small delay to ensure DOM is fully ready
+    await new Promise((r) => setTimeout(r, 50));
+    await initTerminal();
+    if (isExpanded.value) {
+      handleFocus();
+    }
+  });
 });
 
 onUnmounted(() => {
@@ -326,25 +369,23 @@ onUnmounted(() => {
     </Transition>
 
     <!-- Expanded State - Terminal Panel -->
-    <Transition
-      enter-active-class="transition-all duration-300 ease-out"
-      enter-from-class="opacity-0 translate-y-4 scale-95"
-      enter-to-class="opacity-100 translate-y-0 scale-100"
-      leave-active-class="transition-all duration-200 ease-in"
-      leave-from-class="opacity-100 translate-y-0 scale-100"
-      leave-to-class="opacity-0 translate-y-4 scale-95"
+    <!-- Keep terminal in DOM but hide visually when collapsed to preserve state -->
+    <div
+      ref="terminalContainerRef"
+      class="bg-terminal-bg border border-ui-border rounded-lg shadow-2xl overflow-hidden flex flex-col transition-all duration-200"
+      :class="{
+        'opacity-0 pointer-events-none invisible': !isExpanded,
+        'opacity-100 pointer-events-auto visible': isExpanded
+      }"
+      :style="{
+        width: terminalStore.width + 'px',
+        height: terminalStore.height + 'px',
+        position: isExpanded ? 'relative' : 'absolute',
+        left: isExpanded ? 'auto' : '-9999px',
+      }"
+      @focus="handleFocus"
+      @blur="handleBlur"
     >
-      <div
-        v-if="isExpanded"
-        ref="terminalContainerRef"
-        class="bg-terminal-bg border border-ui-border rounded-lg shadow-2xl overflow-hidden flex flex-col"
-        :style="{
-          width: terminalStore.width + 'px',
-          height: terminalStore.height + 'px',
-        }"
-        @focus="handleFocus"
-        @blur="handleBlur"
-      >
         <!-- Resize Handle - Top -->
         <div
           class="absolute top-0 left-4 right-4 h-1 cursor-ns-resize hover:bg-tile-borderSelected/30 transition-colors"
@@ -410,7 +451,6 @@ onUnmounted(() => {
         <!-- Terminal Content -->
         <div ref="terminalRef" class="flex-1 p-2" @click="handleFocus" />
       </div>
-    </Transition>
   </div>
 </template>
 

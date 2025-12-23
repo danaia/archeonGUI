@@ -82,8 +82,13 @@ export class PtyManager {
    */
   resize(id, cols, rows) {
     const ptyProcess = this.terminals.get(id);
-    if (ptyProcess) {
-      ptyProcess.resize(cols, rows);
+    // Only resize if we have valid positive dimensions
+    if (ptyProcess && cols > 0 && rows > 0) {
+      try {
+        ptyProcess.resize(cols, rows);
+      } catch (e) {
+        console.warn("PTY resize failed:", e.message);
+      }
     }
   }
 
