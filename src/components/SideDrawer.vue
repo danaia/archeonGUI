@@ -16,6 +16,11 @@ const selectedRelationship = computed(
 );
 const drawerMode = computed(() => uiStore.drawerMode);
 
+// Resize state
+const isResizing = ref(false);
+const resizeStartX = ref(0);
+const resizeStartWidth = ref(0);
+
 // Monaco editor refs
 const monacoContainerRef = ref(null);
 let monacoEditor = null;
@@ -194,8 +199,37 @@ function onFocusOut(e) {
   }
 }
 
+// Drawer resize handlers
+function startResize(e) {
+  e.preventDefault();
+  isResizing.value = true;
+  resizeStartX.value = e.clientX;
+  resizeStartWidth.value = uiStore.drawerWidth;
+
+  window.addEventListener("mousemove", handleResize);
+  window.addEventListener("mouseup", stopResize);
+}
+
+function handleResize(e) {
+  if (!isResizing.value) return;
+
+  // Dragging left increases width (since drawer is on right side)
+  const deltaX = resizeStartX.value - e.clientX;
+  const newWidth = resizeStartWidth.value + deltaX;
+  uiStore.resizeDrawer(newWidth);
+}
+
+function stopResize() {
+  isResizing.value = false;
+  window.removeEventListener("mousemove", handleResize);
+  window.removeEventListener("mouseup", stopResize);
+}
+
 onUnmounted(() => {
   destroyMonacoEditor();
+  // Clean up resize listeners
+  window.removeEventListener("mousemove", handleResize);
+  window.removeEventListener("mouseup", stopResize);
 });
 </script>
 
@@ -212,9 +246,16 @@ onUnmounted(() => {
       v-if="isOpen"
       class="fixed top-0 right-0 h-full z-40 flex"
       :style="{ width: uiStore.drawerWidth + 'px' }"
+      :class="{ 'select-none': isResizing }"
       @focusin="onFocusIn"
       @focusout="onFocusOut"
     >
+      <!-- Resize Handle (Left Edge) -->
+      <div
+        class="absolute top-0 bottom-0 -left-1 w-2 cursor-ew-resize z-50 hover:bg-green-500/20 transition-colors"
+        @mousedown="startResize"
+      />
+
       <div
         class="w-full h-full bg-ui-bg border-l border-ui-border shadow-2xl flex flex-col"
       >
@@ -249,103 +290,61 @@ onUnmounted(() => {
 
         <!-- Content -->
         <div class="flex-1 overflow-y-auto p-4">
-          <!-- TILE MODE -->
-          <template v-if="drawerMode === 'tile' && selectedTile">
-            <!-- Glyph Header Card -->
-            <div
-              class="rounded-lg p-4 mb-4 border-2"
+          <div class="flex justify-start">
+            <span
+              class="px-2 py-0.5 rounded text-xs uppercase mb-3"
               :style="{
-                backgroundColor: selectedTile.typeInfo?.bgColor,
-                borderColor: selectedTile.typeInfo?.color,
+                backgroundColor: selectedTile.typeInfo?.color + '20',
+                color: selectedTile.typeInfo?.color,
               }"
             >
-              <div class="flex items-center gap-3 mb-3">
-                <div
-                  class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
-                  :style="{
-                    backgroundColor: selectedTile.typeInfo?.color + '30',
-                  }"
-                >
-                  <span :style="{ color: selectedTile.typeInfo?.color }">
-                    {{ selectedTile.typeInfo?.icon }}
-                  </span>
-                </div>
-                <div>
-                  <h3 class="font-bold text-ui-text text-lg">
-                    {{ selectedTile.glyphType }}
-                  </h3>
-                  <p
-                    class="text-sm"
-                    :style="{ color: selectedTile.typeInfo?.color }"
-                  >
-                    {{ selectedTile.typeInfo?.name }}
-                  </p>
-                </div>
-              </div>
-
+              {{ selectedTile.typeInfo?.layer }}
+            </span>
+          </div>
+          <!-- Glyph Header Card -->
+          <div
+            class="rounded-lg p-4 mb-4 border-2"
+            :style="{
+              backgroundColor: selectedTile.typeInfo?.bgColor,
+              borderColor: selectedTile.typeInfo?.color,
+            }"
+          >
+            <div class="flex items-center gap-3 mb-3">
               <div
-                class="text-ui-text font-mono text-sm bg-black/20 rounded px-3 py-2"
+                class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
+                :style="{
+                  backgroundColor: selectedTile.typeInfo?.color + '30',
+                }"
               >
-                {{ selectedTile.label }}
+                <span :style="{ color: selectedTile.typeInfo?.color }">
+                  {{ selectedTile.typeInfo?.icon }}
+                </span>
+              </div>
+              <div>
+                <h3 class="font-bold text-ui-text text-lg">
+                  {{ selectedTile.glyphType }}
+                </h3>
+                <p
+                  class="text-sm"
+                  :style="{ color: selectedTile.typeInfo?.color }"
+                >
+                  {{ selectedTile.typeInfo?.name }}
+                </p>
               </div>
             </div>
 
-            <!-- Glyph Info -->
-            <div class="mb-4">
-              <h4
-                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
-              >
-                Glyph Information
-              </h4>
-              <div class="bg-ui-bgLight rounded-lg p-3 text-sm space-y-2">
-                <div class="flex justify-between">
-                  <span class="text-ui-textMuted">Type</span>
-                  <span class="font-mono text-ui-text">{{
-                    selectedTile.glyphType
-                  }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-ui-textMuted">Name</span>
-                  <span class="text-ui-text">{{ selectedTile.name }}</span>
-                </div>
-                <div class="flex justify-between" v-if="selectedTile.qualifier">
-                  <span class="text-ui-textMuted">Qualifier</span>
-                  <span class="text-ui-text">{{ selectedTile.qualifier }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-ui-textMuted">Layer</span>
-                  <span
-                    class="px-2 py-0.5 rounded text-xs uppercase"
-                    :style="{
-                      backgroundColor: selectedTile.typeInfo?.color + '20',
-                      color: selectedTile.typeInfo?.color,
-                    }"
-                  >
-                    {{ selectedTile.typeInfo?.layer }}
-                  </span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-ui-textMuted">Position</span>
-                  <span class="font-mono text-ui-text"
-                    >{{ selectedTile.col }}, {{ selectedTile.row }}</span
-                  >
-                </div>
-              </div>
+            <div
+              class="text-ui-text font-mono text-sm bg-black/20 rounded px-3 py-2"
+            >
+              {{ selectedTile.label }}
             </div>
+          </div>
 
-            <!-- Description -->
-            <div class="mb-4" v-if="selectedTile.typeInfo?.description">
-              <h4
-                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
-              >
-                Description
-              </h4>
-              <p class="text-sm text-ui-textMuted bg-ui-bgLight rounded-lg p-3">
-                {{ selectedTile.typeInfo?.description }}
-              </p>
-            </div>
+          <!-- TILE MODE -->
+          <template v-if="drawerMode === 'tile' && selectedTile">
+            <!-- Connections (TOP) -->
 
-            <!-- Archeon Metadata (when file exists) -->
+            <!-- Archeon Context (SECOND) -->
             <div
               class="mb-4"
               v-if="
@@ -387,21 +386,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- File Path -->
-            <div class="mb-4" v-if="selectedTile.file">
-              <h4
-                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
-              >
-                Source File
-              </h4>
-              <div class="bg-ui-bgLight rounded-lg p-3">
-                <code class="text-xs text-green-400 break-all">{{
-                  selectedTile.file
-                }}</code>
-              </div>
-            </div>
-
-            <!-- Monaco Code Viewer -->
+            <!-- Monaco Code Viewer (THIRD) -->
             <div class="mb-4" v-if="hasFile">
               <h4
                 class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider flex items-center justify-between"
@@ -440,65 +425,61 @@ onUnmounted(() => {
               ></div>
             </div>
 
-            <!-- Connections -->
+            <!-- Glyph Info -->
             <div class="mb-4">
               <h4
                 class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
               >
-                Connections ({{
-                  tileRelationships.outgoing.length +
-                  tileRelationships.incoming.length
-                }})
+                Glyph Information
               </h4>
+              <div class="bg-ui-bgLight rounded-lg p-3 text-sm space-y-2">
+                <div class="flex justify-between">
+                  <span class="text-ui-textMuted">Type</span>
+                  <span class="font-mono text-ui-text">{{
+                    selectedTile.glyphType
+                  }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-ui-textMuted">Name</span>
+                  <span class="text-ui-text">{{ selectedTile.name }}</span>
+                </div>
+                <div class="flex justify-between" v-if="selectedTile.qualifier">
+                  <span class="text-ui-textMuted">Qualifier</span>
+                  <span class="text-ui-text">{{ selectedTile.qualifier }}</span>
+                </div>
 
-              <!-- Outgoing -->
-              <div v-if="tileRelationships.outgoing.length" class="mb-3">
-                <div class="text-xs text-ui-textMuted mb-1">Outgoing →</div>
-                <div class="space-y-1">
-                  <div
-                    v-for="rel in tileRelationships.outgoing"
-                    :key="rel.id"
-                    class="flex items-center gap-2 bg-ui-bgLight rounded px-3 py-2 text-sm"
+                <div class="flex justify-between">
+                  <span class="text-ui-textMuted">Position</span>
+                  <span class="font-mono text-ui-text"
+                    >{{ selectedTile.col }}, {{ selectedTile.row }}</span
                   >
-                    <span
-                      class="font-bold"
-                      :style="{ color: rel.edgeInfo?.color }"
-                    >
-                      {{ rel.edgeInfo?.displaySymbol }}
-                    </span>
-                    <span class="text-ui-text">{{ rel.targetTileKey }}</span>
-                  </div>
                 </div>
               </div>
+            </div>
 
-              <!-- Incoming -->
-              <div v-if="tileRelationships.incoming.length">
-                <div class="text-xs text-ui-textMuted mb-1">← Incoming</div>
-                <div class="space-y-1">
-                  <div
-                    v-for="rel in tileRelationships.incoming"
-                    :key="rel.id"
-                    class="flex items-center gap-2 bg-ui-bgLight rounded px-3 py-2 text-sm"
-                  >
-                    <span class="text-ui-text">{{ rel.sourceTileKey }}</span>
-                    <span
-                      class="font-bold"
-                      :style="{ color: rel.edgeInfo?.color }"
-                    >
-                      {{ rel.edgeInfo?.displaySymbol }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                v-if="
-                  !tileRelationships.outgoing.length &&
-                  !tileRelationships.incoming.length
-                "
-                class="text-sm text-ui-textMuted bg-ui-bgLight rounded-lg p-3"
+            <!-- Description -->
+            <div class="mb-4" v-if="selectedTile.typeInfo?.description">
+              <h4
+                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
               >
-                No connections
+                Description
+              </h4>
+              <p class="text-sm text-ui-textMuted bg-ui-bgLight rounded-lg p-3">
+                {{ selectedTile.typeInfo?.description }}
+              </p>
+            </div>
+
+            <!-- File Path -->
+            <div class="mb-4" v-if="selectedTile.file">
+              <h4
+                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
+              >
+                Source File
+              </h4>
+              <div class="bg-ui-bgLight rounded-lg p-3">
+                <code class="text-xs text-green-400 break-all">{{
+                  selectedTile.file
+                }}</code>
               </div>
             </div>
           </template>

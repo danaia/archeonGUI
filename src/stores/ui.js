@@ -18,7 +18,7 @@ export const useUIStore = defineStore("ui", () => {
   // Drawer width
   const drawerWidth = ref(400);
   const minDrawerWidth = ref(320);
-  const maxDrawerWidth = ref(600);
+  const maxDrawerWidth = ref(1200);
 
   // Check if canvas interactions should be enabled
   const canvasInteractionsEnabled = computed(() => {
