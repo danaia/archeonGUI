@@ -282,9 +282,7 @@ onMounted(() => {
     canvasRef.value.addEventListener("wheel", handleWheel, { passive: false });
   }
 
-  // Initialize demo
-  tileStore.initLoginFlowDemo();
-  relationshipStore.initLoginFlowRelationships();
+  // Grid starts empty - tiles loaded when project is opened
 });
 
 onUnmounted(() => {
