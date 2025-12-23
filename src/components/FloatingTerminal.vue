@@ -37,7 +37,7 @@ let cleanupExitListener = null;
 const isRunningNpmCommand = ref(false);
 const devServerUrl = ref(null);
 const clientDir = ref(null);
-const devScriptName = ref('dev');
+const devScriptName = ref("dev");
 const isDevServerRunning = ref(false);
 
 const isExpanded = computed(() => terminalStore.isExpanded);
@@ -380,12 +380,14 @@ async function findClientDirectory() {
   if (!window.electronAPI || !projectStore.projectPath) {
     return null;
   }
-  
+
   try {
-    const result = await window.electronAPI.findClientDir(projectStore.projectPath);
+    const result = await window.electronAPI.findClientDir(
+      projectStore.projectPath
+    );
     if (result.success) {
       clientDir.value = result.path;
-      
+
       // Read package.json to find dev script
       if (result.hasPackageJson) {
         const pkgResult = await window.electronAPI.readPackageJson(result.path);
@@ -393,11 +395,11 @@ async function findClientDirectory() {
           devScriptName.value = pkgResult.devScript;
         }
       }
-      
+
       return result.path;
     }
   } catch (error) {
-    console.error('Error finding client directory:', error);
+    console.error("Error finding client directory:", error);
   }
   return null;
 }
@@ -405,8 +407,8 @@ async function findClientDirectory() {
 // Parse terminal output to extract URL
 function parseUrlFromOutput(data) {
   // Common patterns for dev server URLs - clean ANSI codes first
-  const cleanData = data.replace(/\x1b\[[0-9;]*m/g, '');
-  
+  const cleanData = data.replace(/\x1b\[[0-9;]*m/g, "");
+
   const patterns = [
     /➜\s+Local:\s+(https?:\/\/[^\s\x1b]+)/i,
     /Local:\s+(https?:\/\/[^\s\x1b]+)/i,
@@ -419,12 +421,12 @@ function parseUrlFromOutput(data) {
     /(https?:\/\/localhost:\d+)/i,
     /(https?:\/\/127\.0\.0\.1:\d+)/i,
   ];
-  
+
   for (const pattern of patterns) {
     const match = cleanData.match(pattern);
     if (match) {
       // Clean trailing slashes and special chars
-      return match[1].replace(/[\/\s]+$/, '');
+      return match[1].replace(/[\/\s]+$/, "");
     }
   }
   return null;
@@ -487,17 +489,17 @@ async function handleNpmRun() {
   if (cleanupDataListener) {
     cleanupDataListener();
   }
-  
+
   cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
     if (id === ptyId && terminal) {
       terminal.write(data);
       terminal.scrollToBottom();
-      
+
       // Always try to capture/update URL from output (port may change on restart)
       const url = parseUrlFromOutput(data);
       if (url) {
         devServerUrl.value = url;
-        console.log('Dev server URL captured:', url);
+        console.log("Dev server URL captured:", url);
       }
     }
   });
@@ -522,7 +524,7 @@ async function handleNpmPreview() {
 
   // Open the captured dev server URL in system browser
   const url = devServerUrl.value;
-  console.log('Opening preview URL:', url);
+  console.log("Opening preview URL:", url);
 
   if (window.electronAPI?.openExternal) {
     await window.electronAPI.openExternal(url);
@@ -740,12 +742,28 @@ onUnmounted(() => {
           @click.stop="handleNpmPreview"
           :disabled="!devServerUrl"
           class="px-2 py-1 text-xs font-medium rounded bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-          :title="devServerUrl ? `Open ${devServerUrl}` : 'Run dev server first'"
+          :title="
+            devServerUrl ? `Open ${devServerUrl}` : 'Run dev server first'
+          "
         >
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          <svg
+            class="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+            />
           </svg>
-          <span>{{ devServerUrl ? devServerUrl.replace('http://', '').replace('https://', '') : 'Preview' }}</span>
+          <span>{{
+            devServerUrl
+              ? devServerUrl.replace("http://", "").replace("https://", "")
+              : "Preview"
+          }}</span>
         </button>
 
         <div class="w-px h-4 bg-ui-border mx-1"></div>

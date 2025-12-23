@@ -48,8 +48,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // ============ FILE SYSTEM ============
   readFile: (filePath) => ipcRenderer.invoke("fs:readFile", filePath),
-  findClientDir: (projectPath) => ipcRenderer.invoke("fs:findClientDir", projectPath),
-  readPackageJson: (dirPath) => ipcRenderer.invoke("fs:readPackageJson", dirPath),
+  findClientDir: (projectPath) =>
+    ipcRenderer.invoke("fs:findClientDir", projectPath),
+  readPackageJson: (dirPath) =>
+    ipcRenderer.invoke("fs:readPackageJson", dirPath),
 
   // ============ SHELL ============
   openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
