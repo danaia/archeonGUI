@@ -52,9 +52,9 @@ export const useUIStore = defineStore("ui", () => {
     focusedElement.value = element;
   }
 
-  // Clear focus (return to canvas)
+  // Clear focus (return to default state)
   function clearFocus() {
-    focusedElement.value = "canvas";
+    focusedElement.value = null;
   }
 
   // Key press handlers

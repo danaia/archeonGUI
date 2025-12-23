@@ -277,7 +277,14 @@ function startResize(e, direction) {
 }
 
 function handleToggle() {
+  const wasExpanded = terminalStore.isExpanded;
   terminalStore.toggle();
+
+  // When closing, explicitly clear focus to restore canvas interactions
+  if (wasExpanded) {
+    terminalStore.setFocus(false);
+    uiStore.setFocus(null);
+  }
 }
 
 function handleFocus() {
@@ -288,7 +295,10 @@ function handleFocus() {
 
 function handleBlur() {
   terminalStore.setFocus(false);
-  uiStore.clearFocus();
+  // Only clear focus if terminal is actually closing
+  if (!terminalStore.isExpanded) {
+    uiStore.setFocus(null);
+  }
 }
 
 // Watch for expansion to initialize terminal
@@ -381,7 +391,6 @@ onUnmounted(() => {
         }"
         @focus="handleFocus"
         @blur="handleBlur"
-        @click="handleFocus"
       >
         <!-- Resize Handle - Top -->
         <div
@@ -424,7 +433,7 @@ onUnmounted(() => {
           </div>
           <div class="flex items-center gap-1">
             <button
-              @click="handleToggle"
+              @click.stop="handleToggle"
               class="p-1.5 rounded hover:bg-ui-bgLight text-ui-textMuted hover:text-ui-text transition-colors"
               title="Minimize"
             >
