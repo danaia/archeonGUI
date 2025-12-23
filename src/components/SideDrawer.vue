@@ -182,6 +182,103 @@ function destroyMonacoEditor() {
   }
 }
 
+/**
+ * Scroll to a section in the Monaco editor
+ * Searches for the section name in the file content and scrolls to it
+ * @param {string} sectionName - The section name to find and scroll to
+ */
+function scrollToSection(sectionName) {
+  if (!monacoEditor || !fileContent.value) return;
+
+  const model = monacoEditor.getModel();
+  if (!model) return;
+
+  // Search for the section name in the content
+  // Try different patterns: function/class declarations, comments, etc.
+  const searchPatterns = [
+    // Function/method definitions
+    new RegExp(
+      `(?:function|def|async\\s+function|async\\s+def)\\s+${escapeRegExpString(
+        sectionName
+      )}\\s*[(<]`,
+      "i"
+    ),
+    // Class definitions
+    new RegExp(
+      `(?:class|interface|type|struct)\\s+${escapeRegExpString(
+        sectionName
+      )}\\s*[{(<]`,
+      "i"
+    ),
+    // Variable/const declarations
+    new RegExp(
+      `(?:const|let|var|val)\\s+${escapeRegExpString(sectionName)}\\s*[=:]`,
+      "i"
+    ),
+    // Export statements
+    new RegExp(
+      `export\\s+(?:default\\s+)?(?:function|class|const|let)?\\s*${escapeRegExpString(
+        sectionName
+      )}`,
+      "i"
+    ),
+    // Comment markers (e.g., // SECTION: name or # SECTION: name)
+    new RegExp(
+      `(?://|#|/\\*)\\s*(?:SECTION|REGION|MARK)?:?\\s*${escapeRegExpString(
+        sectionName
+      )}`,
+      "i"
+    ),
+    // Vue component sections
+    new RegExp(`<${escapeRegExpString(sectionName)}(?:\\s|>)`, "i"),
+    // Just the name as a last resort
+    new RegExp(`\\b${escapeRegExpString(sectionName)}\\b`, "i"),
+  ];
+
+  const lines = fileContent.value.split("\n");
+  let foundLine = -1;
+
+  // Try each pattern in order of specificity
+  for (const pattern of searchPatterns) {
+    for (let i = 0; i < lines.length; i++) {
+      if (pattern.test(lines[i])) {
+        foundLine = i + 1; // Monaco lines are 1-indexed
+        break;
+      }
+    }
+    if (foundLine > 0) break;
+  }
+
+  if (foundLine > 0) {
+    // Scroll to the line and reveal it in center
+    monacoEditor.revealLineInCenter(foundLine);
+
+    // Set cursor position and highlight the line
+    monacoEditor.setPosition({ lineNumber: foundLine, column: 1 });
+
+    // Select the entire line to highlight it
+    const lineLength = model.getLineLength(foundLine);
+    monacoEditor.setSelection({
+      startLineNumber: foundLine,
+      startColumn: 1,
+      endLineNumber: foundLine,
+      endColumn: lineLength + 1,
+    });
+
+    // Focus the editor
+    monacoEditor.focus();
+  }
+}
+
+/**
+ * Escape special regex characters in a string
+ * @param {string} string - String to escape
+ * @returns {string} Escaped string
+ */
+function escapeRegExpString(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function handleClose() {
   destroyMonacoEditor();
   uiStore.closeDrawer();
@@ -374,13 +471,15 @@ onUnmounted(() => {
                 <div v-if="selectedTile.sections?.length">
                   <span class="text-ui-textMuted block mb-1">Sections</span>
                   <div class="flex flex-wrap gap-1">
-                    <span
+                    <button
                       v-for="section in selectedTile.sections"
                       :key="section"
-                      class="px-2 py-0.5 rounded text-xs bg-ui-bg text-ui-text"
+                      @click="scrollToSection(section)"
+                      class="px-2 py-0.5 rounded text-xs bg-ui-bg text-ui-text hover:bg-ui-border hover:text-green-400 transition-colors cursor-pointer"
+                      :title="`Jump to ${section} in code`"
                     >
                       {{ section }}
-                    </span>
+                    </button>
                   </div>
                 </div>
               </div>
