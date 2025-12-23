@@ -366,7 +366,9 @@ function createWindow() {
         await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
       } catch (err) {
         if (retries > 0) {
-          console.log(`Waiting for Vite dev server... (${retries} retries left)`);
+          console.log(
+            `Waiting for Vite dev server... (${retries} retries left)`
+          );
           await new Promise((resolve) => setTimeout(resolve, 1e3));
           return loadDevServer(retries - 1);
         }
@@ -467,7 +469,10 @@ ipcMain.handle("fs:findClientDir", async (event, projectPath) => {
       await fs2.access(rootPkgPath);
       return { success: true, path: projectPath, hasPackageJson: true };
     } catch {
-      return { success: false, error: "No package.json found in project or client directory" };
+      return {
+        success: false,
+        error: "No package.json found in project or client directory"
+      };
     }
   } catch (error) {
     return { success: false, error: error.message };

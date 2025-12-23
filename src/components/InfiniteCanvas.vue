@@ -8,6 +8,7 @@ import {
 } from "../stores";
 import { useSelection } from "../composables";
 import { GLYPH_STATES } from "../stores/tiles";
+import Tooltip from "./Tooltip.vue";
 
 const canvasStore = useCanvasStore();
 const tileStore = useTileStore();
@@ -607,6 +608,60 @@ onUnmounted(() => {
           >
             {{ tile.glyphType }}
           </span>
+          <!-- Mismatch indicator with tooltip -->
+          <Tooltip v-if="tile.mismatch" position="bottom" maxWidth="320px">
+            <span
+              class="flex-shrink-0 rounded-full bg-amber-500 animate-pulse"
+              :style="{
+                width: Math.max(6, 8 * canvasStore.zoom) + 'px',
+                height: Math.max(6, 8 * canvasStore.zoom) + 'px',
+              }"
+            ></span>
+            <template #content>
+              <div class="space-y-2">
+                <div
+                  class="font-semibold text-amber-400 flex items-center gap-1.5"
+                >
+                  <span>●</span> File Location Mismatch
+                </div>
+                <p class="text-slate-300 leading-relaxed">
+                  This glyph was matched flexibly. The file location suggests a
+                  different glyph type than what's defined in your chain.
+                </p>
+                <div
+                  class="bg-slate-900/50 rounded px-2 py-1.5 text-[11px] space-y-1"
+                >
+                  <div>
+                    <span class="text-slate-500">Chain says:</span>
+                    <span class="text-white">{{ tile.mismatch.expected }}</span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500">Index has:</span>
+                    <span class="text-amber-300">{{
+                      tile.mismatch.actual
+                    }}</span>
+                  </div>
+                  <div
+                    v-if="tile.file"
+                    class="pt-1 border-t border-slate-700 mt-1"
+                  >
+                    <span class="text-slate-500">File path:</span>
+                    <span class="text-blue-300 block truncate">{{
+                      tile.file
+                    }}</span>
+                  </div>
+                </div>
+                <p class="text-slate-400 text-[11px] leading-relaxed">
+                  Review the file path above. If it lives in
+                  <code class="text-amber-300/80">views/</code>, use
+                  <code class="text-amber-300/80">V:</code>. If in
+                  <code class="text-amber-300/80">components/</code>, use
+                  <code class="text-amber-300/80">CMP:</code>. Update your
+                  <code class="text-amber-300/80">ARCHEON.arcon</code> to match.
+                </p>
+              </div>
+            </template>
+          </Tooltip>
         </div>
 
         <!-- Glyph Content -->

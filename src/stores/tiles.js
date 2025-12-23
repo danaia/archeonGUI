@@ -118,16 +118,73 @@ export const useTileStore = defineStore("tiles", () => {
   }
 
   /**
+   * Parse a glyph label into type and name parts
+   * @param {string} label - Glyph key like "CMP:LoginForm" or "V:LoginView"
+   * @returns {{type: string, name: string}} - Parsed parts
+   */
+  function parseGlyphLabel(label) {
+    const match = label.match(/^(\w+):(.+)$/);
+    if (match) {
+      return { type: match[1], name: match[2] };
+    }
+    return { type: "", name: label };
+  }
+
+  /**
+   * Check if two glyph labels match flexibly
+   * Matches if: exact match, OR same name with compatible types (V/CMP/View variants)
+   * @param {string} label1 - First label
+   * @param {string} label2 - Second label
+   * @returns {boolean}
+   */
+  function glyphLabelsMatch(label1, label2) {
+    // Exact match
+    if (label1 === label2) return true;
+
+    const parsed1 = parseGlyphLabel(label1);
+    const parsed2 = parseGlyphLabel(label2);
+
+    // Normalize names for comparison (case-insensitive, strip View/Form suffixes for matching)
+    const normalizeName = (name) => {
+      return name
+        .toLowerCase()
+        .replace(/view$/i, "")
+        .replace(/form$/i, "")
+        .replace(/component$/i, "");
+    };
+
+    const name1 = normalizeName(parsed1.name);
+    const name2 = normalizeName(parsed2.name);
+
+    // If normalized names match, check type compatibility
+    if (name1 === name2) {
+      // Types that are considered compatible (View-like components)
+      const viewTypes = ["V", "CMP", "VIW", "VIEW"];
+      const isViewType1 = viewTypes.includes(parsed1.type.toUpperCase());
+      const isViewType2 = viewTypes.includes(parsed2.type.toUpperCase());
+
+      // Both are view-like types = compatible
+      if (isViewType1 && isViewType2) return true;
+
+      // Same type = compatible
+      if (parsed1.type === parsed2.type) return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Update glyph state by label (glyph key like "STO:Auth")
+   * Uses flexible matching: exact match first, then name-based matching
    * @param {string} label - Glyph key
    * @param {string} state - New state
    * @param {Object} indexData - Optional data from index.json
    */
   function updateGlyphStateByLabel(label, state, indexData = null) {
+    // First try exact match
     for (const [key, tile] of tiles.value) {
       if (tile.label === label) {
         tile.state = state;
-        // Also update with index data if provided
         if (indexData) {
           tile.file = indexData.file || tile.file;
           tile.intent = indexData.intent || tile.intent;
@@ -136,6 +193,31 @@ export const useTileStore = defineStore("tiles", () => {
         return tile;
       }
     }
+
+    // Fallback: flexible matching (handles V vs CMP, LoginView vs LoginForm, etc.)
+    for (const [key, tile] of tiles.value) {
+      if (glyphLabelsMatch(tile.label, label)) {
+        console.log(
+          `Archeon: Flexible match "${tile.label}" ↔ "${label}" (updating state to ${state})`
+        );
+
+        // Mark tile as having a glyph mismatch (visual indicator instead of toast)
+        tile.mismatch = {
+          expected: tile.label,
+          actual: label,
+          suggestion: `Update ARCHEON.arcon: "${tile.label}" → "${label}"`,
+        };
+
+        tile.state = state;
+        if (indexData) {
+          tile.file = indexData.file || tile.file;
+          tile.intent = indexData.intent || tile.intent;
+          tile.sections = indexData.sections || tile.sections;
+        }
+        return tile;
+      }
+    }
+
     return null;
   }
 

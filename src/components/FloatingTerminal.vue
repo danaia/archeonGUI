@@ -725,7 +725,7 @@ onUnmounted(() => {
         <button
           @click.stop="handleNpmInstall"
           :disabled="isRunningNpmCommand || !projectStore.projectPath"
-          class="px-2 py-1 text-xs font-medium rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           title="npm install"
         >
           Install
@@ -741,7 +741,7 @@ onUnmounted(() => {
         <button
           @click.stop="handleNpmPreview"
           :disabled="!devServerUrl"
-          class="px-2 py-1 text-xs font-medium rounded bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+          class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
           :title="
             devServerUrl ? `Open ${devServerUrl}` : 'Run dev server first'
           "

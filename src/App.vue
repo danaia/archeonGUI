@@ -1,6 +1,11 @@
 <script setup>
 import { onMounted, onUnmounted, computed } from "vue";
-import { InfiniteCanvas, SideDrawer, FloatingTerminal } from "./components";
+import {
+  InfiniteCanvas,
+  SideDrawer,
+  FloatingTerminal,
+  ToastContainer,
+} from "./components";
 import { useTerminalStore, useUIStore, useProjectStore } from "./stores";
 import {
   initArcheonSync,
@@ -139,6 +144,9 @@ onUnmounted(() => {
 
     <!-- Floating Terminal -->
     <FloatingTerminal />
+
+    <!-- Toast Notifications -->
+    <ToastContainer />
   </div>
 </template>
 

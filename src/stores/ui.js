@@ -20,6 +20,10 @@ export const useUIStore = defineStore("ui", () => {
   const minDrawerWidth = ref(320);
   const maxDrawerWidth = ref(1200);
 
+  // Toast notifications
+  const toasts = ref([]);
+  let toastIdCounter = 0;
+
   // Check if canvas interactions should be enabled
   const canvasInteractionsEnabled = computed(() => {
     return (
@@ -78,6 +82,53 @@ export const useUIStore = defineStore("ui", () => {
     );
   }
 
+  /**
+   * Add a toast notification
+   * @param {string} message - Toast message
+   * @param {string} type - 'info' | 'warning' | 'error' | 'success'
+   * @param {number} duration - Auto-dismiss in ms (0 = no auto-dismiss)
+   * @param {Object} meta - Optional metadata (e.g., suggested fix)
+   */
+  function addToast(message, type = "info", duration = 6000, meta = null) {
+    const id = ++toastIdCounter;
+
+    const toast = {
+      id,
+      message,
+      type,
+      meta,
+      createdAt: Date.now(),
+    };
+
+    toasts.value.push(toast);
+
+    // Auto-dismiss
+    if (duration > 0) {
+      setTimeout(() => {
+        removeToast(id);
+      }, duration);
+    }
+
+    return id;
+  }
+
+  /**
+   * Remove a toast by ID
+   */
+  function removeToast(id) {
+    const index = toasts.value.findIndex((t) => t.id === id);
+    if (index !== -1) {
+      toasts.value.splice(index, 1);
+    }
+  }
+
+  /**
+   * Clear all toasts
+   */
+  function clearToasts() {
+    toasts.value = [];
+  }
+
   return {
     // State
     isDrawerOpen,
@@ -88,6 +139,7 @@ export const useUIStore = defineStore("ui", () => {
     drawerWidth,
     minDrawerWidth,
     maxDrawerWidth,
+    toasts,
 
     // Computed
     canvasInteractionsEnabled,
@@ -103,5 +155,8 @@ export const useUIStore = defineStore("ui", () => {
     keyUp,
     isKeyPressed,
     resizeDrawer,
+    addToast,
+    removeToast,
+    clearToasts,
   };
 });
