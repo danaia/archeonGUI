@@ -12,9 +12,20 @@ const projectStore = useProjectStore();
 
 const terminalRef = ref(null);
 const terminalContainerRef = ref(null);
+
+// Dragging state
+const isDragging = ref(false);
+const dragOffset = ref({ x: 0, y: 0 });
+
+// Resizing state
 const isResizing = ref(false);
+const resizeDirection = ref(null);
 const resizeStartPos = ref({ x: 0, y: 0 });
 const resizeStartSize = ref({ width: 0, height: 0 });
+const resizeStartPosition = ref({ x: 0, y: 0 });
+
+// Panel position (bottom-left default, stored in pixels from bottom-left)
+const panelPosition = ref({ x: 16, y: 16 });
 
 let terminal = null;
 let fitAddon = null;
@@ -26,6 +37,14 @@ const isExpanded = computed(() => terminalStore.isExpanded);
 
 // Check if we're running in Electron
 const isElectron = computed(() => !!window.electronAPI);
+
+// Computed style for panel positioning
+const panelStyle = computed(() => ({
+  width: `${terminalStore.width}px`,
+  height: `${terminalStore.height}px`,
+  left: `${panelPosition.value.x}px`,
+  bottom: `${panelPosition.value.y}px`,
+}));
 
 async function initTerminal() {
   if (!terminalRef.value) return;
@@ -196,44 +215,120 @@ function resizePty() {
 // Resize handlers
 function startResize(e, direction) {
   e.preventDefault();
+  e.stopPropagation();
+
   isResizing.value = true;
+  resizeDirection.value = direction;
   resizeStartPos.value = { x: e.clientX, y: e.clientY };
   resizeStartSize.value = {
     width: terminalStore.width,
     height: terminalStore.height,
   };
+  resizeStartPosition.value = { ...panelPosition.value };
 
-  const handleMove = (moveEvent) => {
-    const deltaX = moveEvent.clientX - resizeStartPos.value.x;
-    const deltaY = resizeStartPos.value.y - moveEvent.clientY;
+  window.addEventListener("mousemove", handleResizeMove);
+  window.addEventListener("mouseup", stopResize);
+}
 
-    if (direction === "top" || direction === "corner") {
-      terminalStore.resize(
-        resizeStartSize.value.width,
-        resizeStartSize.value.height + deltaY
-      );
-    }
-    if (direction === "right" || direction === "corner") {
-      terminalStore.resize(
-        resizeStartSize.value.width + deltaX,
-        terminalStore.height
-      );
-    }
+function handleResizeMove(e) {
+  if (!isResizing.value) return;
 
-    nextTick(() => {
-      fitAddon?.fit();
-      resizePty();
-    });
+  const deltaX = e.clientX - resizeStartPos.value.x;
+  const deltaY = e.clientY - resizeStartPos.value.y;
+  const dir = resizeDirection.value;
+
+  let newWidth = resizeStartSize.value.width;
+  let newHeight = resizeStartSize.value.height;
+  let newX = resizeStartPosition.value.x;
+  let newY = resizeStartPosition.value.y;
+
+  // Handle different resize directions
+  if (dir.includes("e")) {
+    newWidth = Math.max(300, resizeStartSize.value.width + deltaX);
+  }
+  if (dir.includes("w")) {
+    const widthChange = Math.min(deltaX, resizeStartSize.value.width - 300);
+    newWidth = resizeStartSize.value.width - widthChange;
+    newX = resizeStartPosition.value.x + widthChange;
+  }
+  if (dir.includes("n")) {
+    newHeight = Math.max(200, resizeStartSize.value.height - deltaY);
+    // Adjust Y position since we're resizing from top (bottom-origin)
+    newY =
+      resizeStartPosition.value.y - (newHeight - resizeStartSize.value.height);
+  }
+  if (dir.includes("s")) {
+    newHeight = Math.max(200, resizeStartSize.value.height + deltaY);
+  }
+
+  // Clamp position
+  newX = Math.max(0, newX);
+  newY = Math.max(0, newY);
+
+  terminalStore.resize(newWidth, newHeight);
+  panelPosition.value = { x: newX, y: newY };
+
+  // Refit terminal after resize
+  nextTick(() => {
+    fitAddon?.fit();
+    resizePty();
+  });
+}
+
+function stopResize() {
+  isResizing.value = false;
+  resizeDirection.value = null;
+  window.removeEventListener("mousemove", handleResizeMove);
+  window.removeEventListener("mouseup", stopResize);
+
+  // Final fit after resize completes
+  nextTick(() => {
+    fitAddon?.fit();
+    resizePty();
+  });
+}
+
+// Drag handlers
+function startDrag(e) {
+  // Only drag from header, not buttons
+  if (e.target.closest("button")) return;
+
+  e.preventDefault();
+  isDragging.value = true;
+
+  // Calculate offset from panel position to mouse
+  const rect = terminalContainerRef.value.getBoundingClientRect();
+  dragOffset.value = {
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
   };
 
-  const handleUp = () => {
-    isResizing.value = false;
-    window.removeEventListener("mousemove", handleMove);
-    window.removeEventListener("mouseup", handleUp);
-  };
+  window.addEventListener("mousemove", handleDrag);
+  window.addEventListener("mouseup", stopDrag);
+}
 
-  window.addEventListener("mousemove", handleMove);
-  window.addEventListener("mouseup", handleUp);
+function handleDrag(e) {
+  if (!isDragging.value) return;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Calculate new position (convert from mouse position to bottom-left origin)
+  let newX = e.clientX - dragOffset.value.x;
+  let newY =
+    viewportHeight - (e.clientY - dragOffset.value.y + terminalStore.height);
+
+  // Clamp to viewport bounds
+  newX = Math.max(0, Math.min(newX, viewportWidth - terminalStore.width));
+  newY = Math.max(0, Math.min(newY, viewportHeight - terminalStore.height));
+
+  panelPosition.value = { x: newX, y: newY };
+}
+
+function stopDrag() {
+  isDragging.value = false;
+  window.removeEventListener("mousemove", handleDrag);
+  window.removeEventListener("mouseup", stopDrag);
 }
 
 function handleToggle() {
@@ -265,11 +360,9 @@ function handleBlur() {
 watch(isExpanded, (expanded) => {
   if (expanded) {
     nextTick(async () => {
-      // Small delay to allow v-show to fully render dimensions
-      await new Promise((r) => setTimeout(r, 50));
       await initTerminal();
       handleFocus();
-      // Ensure scroll to bottom after rendering is complete
+      // Ensure fit after panel is visible
       setTimeout(() => {
         if (terminal && fitAddon) {
           try {
@@ -309,11 +402,19 @@ watch(
   }
 );
 
+// Window resize handler
+function handleWindowResize() {
+  if (terminal && fitAddon && isExpanded.value) {
+    fitAddon.fit();
+    resizePty();
+  }
+}
+
 onMounted(() => {
-  // Initialize terminal immediately since v-show keeps DOM alive
+  window.addEventListener("resize", handleWindowResize);
+
+  // Initialize terminal immediately - DOM is always present now
   nextTick(async () => {
-    // Small delay to ensure DOM is fully ready
-    await new Promise((r) => setTimeout(r, 50));
     await initTerminal();
     if (isExpanded.value) {
       handleFocus();
@@ -322,28 +423,110 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener("resize", handleWindowResize);
   destroyTerminal();
 });
 </script>
 
 <template>
-  <div class="fixed bottom-4 left-4 z-50">
-    <!-- Collapsed State - Floating Button -->
-    <Transition
-      enter-active-class="transition-all duration-200 ease-out"
-      enter-from-class="opacity-0 scale-90"
-      enter-to-class="opacity-100 scale-100"
-      leave-active-class="transition-all duration-150 ease-in"
-      leave-from-class="opacity-100 scale-100"
-      leave-to-class="opacity-0 scale-90"
+  <!-- Collapsed State - Floating Button -->
+  <Transition
+    enter-active-class="transition-all duration-200 ease-out"
+    enter-from-class="opacity-0 scale-90"
+    enter-to-class="opacity-100 scale-100"
+    leave-active-class="transition-all duration-150 ease-in"
+    leave-from-class="opacity-100 scale-100"
+    leave-to-class="opacity-0 scale-90"
+  >
+    <button
+      v-if="!isExpanded"
+      @click="handleToggle"
+      class="fixed bottom-4 left-4 z-[100] flex items-center gap-2 px-4 py-3 bg-terminal-bg border border-ui-border rounded-lg shadow-lg hover:bg-ui-bgLight transition-colors group"
     >
-      <button
-        v-if="!isExpanded"
-        @click="handleToggle"
-        class="flex items-center gap-2 px-4 py-3 bg-terminal-bg border border-ui-border rounded-lg shadow-lg hover:bg-ui-bgLight transition-colors group"
+      <svg
+        class="w-5 h-5 text-terminal-text"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
       >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
+      <span
+        class="text-sm font-medium text-ui-text group-hover:text-terminal-text transition-colors"
+      >
+        Terminal
+      </span>
+      <kbd
+        class="ml-2 px-1.5 py-0.5 bg-ui-bg rounded text-xs text-ui-textMuted"
+      >
+        `
+      </kbd>
+    </button>
+  </Transition>
+
+  <!-- Expanded State - Draggable/Resizable Terminal Panel -->
+  <!-- NO v-if - keep DOM alive, use visibility + position to hide -->
+  <div
+    ref="terminalContainerRef"
+    class="terminal-panel fixed z-[100] flex flex-col bg-terminal-bg border border-ui-border rounded-lg shadow-2xl transition-opacity duration-200"
+    :class="{
+      'select-none': isDragging || isResizing,
+      'opacity-0 pointer-events-none': !isExpanded,
+      'opacity-100 pointer-events-auto': isExpanded,
+    }"
+    :style="{
+      ...panelStyle,
+      visibility: isExpanded ? 'visible' : 'hidden',
+      transform: isExpanded ? 'none' : 'translateX(-9999px)',
+    }"
+  >
+    <!-- Resize Handles - All edges and corners -->
+    <div
+      class="absolute -top-1 left-3 right-3 h-2 cursor-ns-resize z-10 hover:bg-green-500/20"
+      @mousedown="(e) => startResize(e, 'n')"
+    />
+    <div
+      class="absolute -bottom-1 left-3 right-3 h-2 cursor-ns-resize z-10 hover:bg-green-500/20"
+      @mousedown="(e) => startResize(e, 's')"
+    />
+    <div
+      class="absolute top-3 bottom-3 -right-1 w-2 cursor-ew-resize z-10 hover:bg-green-500/20"
+      @mousedown="(e) => startResize(e, 'e')"
+    />
+    <div
+      class="absolute top-3 bottom-3 -left-1 w-2 cursor-ew-resize z-10 hover:bg-green-500/20"
+      @mousedown="(e) => startResize(e, 'w')"
+    />
+    <div
+      class="absolute -top-1 -left-1 w-3 h-3 cursor-nwse-resize z-20 hover:bg-green-500/20"
+      @mousedown="(e) => startResize(e, 'nw')"
+    />
+    <div
+      class="absolute -top-1 -right-1 w-3 h-3 cursor-nesw-resize z-20 hover:bg-green-500/20"
+      @mousedown="(e) => startResize(e, 'ne')"
+    />
+    <div
+      class="absolute -bottom-1 -left-1 w-3 h-3 cursor-nesw-resize z-20 hover:bg-green-500/20"
+      @mousedown="(e) => startResize(e, 'sw')"
+    />
+    <div
+      class="absolute -bottom-1 -right-1 w-3 h-3 cursor-nwse-resize z-20 hover:bg-green-500/20"
+      @mousedown="(e) => startResize(e, 'se')"
+    />
+
+    <!-- Header (Draggable) -->
+    <div
+      class="terminal-header flex items-center justify-between px-3 py-2 bg-ui-bg border-b border-ui-border rounded-t-lg cursor-move shrink-0"
+      @mousedown="startDrag"
+    >
+      <div class="flex items-center gap-2 pointer-events-none">
         <svg
-          class="w-5 h-5 text-terminal-text"
+          class="w-4 h-4 text-terminal-text"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -355,116 +538,70 @@ onUnmounted(() => {
             d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
-        <span
-          class="text-sm font-medium text-ui-text group-hover:text-terminal-text transition-colors"
-        >
-          Terminal
-        </span>
-        <kbd
-          class="ml-2 px-1.5 py-0.5 bg-ui-bg rounded text-xs text-ui-textMuted"
-        >
-          `
-        </kbd>
-      </button>
-    </Transition>
-
-    <!-- Expanded State - Terminal Panel -->
-    <!-- Keep terminal in DOM but hide visually when collapsed to preserve state -->
-    <div
-      ref="terminalContainerRef"
-      class="bg-terminal-bg border border-ui-border rounded-lg shadow-2xl overflow-hidden flex flex-col transition-all duration-200"
-      :class="{
-        'opacity-0 pointer-events-none invisible': !isExpanded,
-        'opacity-100 pointer-events-auto visible': isExpanded
-      }"
-      :style="{
-        width: terminalStore.width + 'px',
-        height: terminalStore.height + 'px',
-        position: isExpanded ? 'relative' : 'absolute',
-        left: isExpanded ? 'auto' : '-9999px',
-      }"
-      @focus="handleFocus"
-      @blur="handleBlur"
-    >
-        <!-- Resize Handle - Top -->
-        <div
-          class="absolute top-0 left-4 right-4 h-1 cursor-ns-resize hover:bg-tile-borderSelected/30 transition-colors"
-          @mousedown="(e) => startResize(e, 'top')"
-        />
-
-        <!-- Resize Handle - Right -->
-        <div
-          class="absolute top-4 bottom-4 right-0 w-1 cursor-ew-resize hover:bg-tile-borderSelected/30 transition-colors"
-          @mousedown="(e) => startResize(e, 'right')"
-        />
-
-        <!-- Resize Handle - Corner -->
-        <div
-          class="absolute top-0 right-0 w-4 h-4 cursor-nesw-resize"
-          @mousedown="(e) => startResize(e, 'corner')"
-        />
-
-        <!-- Header -->
-        <div
-          class="flex items-center justify-between px-3 py-2 bg-ui-bg border-b border-ui-border"
-        >
-          <div class="flex items-center gap-2">
-            <svg
-              class="w-4 h-4 text-terminal-text"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <span class="text-sm font-medium text-ui-text">Terminal</span>
-            <span class="text-xs text-ui-textMuted">zsh</span>
-          </div>
-          <div class="flex items-center gap-1">
-            <button
-              @click.stop="handleToggle"
-              class="p-1.5 rounded hover:bg-ui-bgLight text-ui-textMuted hover:text-ui-text transition-colors"
-              title="Minimize"
-            >
-              <svg
-                class="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- Terminal Content -->
-        <div ref="terminalRef" class="flex-1 p-2" @click="handleFocus" />
+        <span class="text-sm font-medium text-ui-text">Terminal</span>
+        <span class="text-xs text-ui-textMuted">zsh</span>
       </div>
+      <div class="flex items-center gap-1">
+        <button
+          @click.stop="handleToggle"
+          class="p-1.5 rounded hover:bg-ui-bgLight text-ui-textMuted hover:text-ui-text transition-colors pointer-events-auto"
+          title="Minimize (`)"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M20 12H4"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Terminal Content - Critical: min-h-0 for flex, explicit overflow -->
+    <div
+      ref="terminalRef"
+      class="terminal-content flex-1 min-h-0"
+      @click="handleFocus"
+    />
   </div>
 </template>
 
 <style scoped>
-/* Ensure terminal fills container properly */
+/* Terminal panel - isolated layer, no transforms that break xterm */
+.terminal-panel {
+  contain: layout style;
+}
+
+/* Terminal content wrapper - CRITICAL: min-h-0 + flex-1 for proper flex sizing */
+.terminal-content {
+  padding: 4px;
+  overflow: hidden;
+}
+
+/* xterm.js styles - ensure proper sizing without clipping */
 :deep(.xterm) {
   height: 100%;
+  padding: 4px;
 }
 
 :deep(.xterm-viewport) {
+  /* Allow scrolling within terminal */
   overflow-y: auto !important;
 }
 
 :deep(.xterm-screen) {
   height: 100%;
+}
+
+/* Prevent canvas clipping from border-radius */
+:deep(.xterm .xterm-screen canvas) {
+  display: block;
 }
 </style>
