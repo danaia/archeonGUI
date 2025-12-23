@@ -33,6 +33,13 @@ let ptyId = null;
 let cleanupDataListener = null;
 let cleanupExitListener = null;
 
+// NPM command states
+const isRunningNpmCommand = ref(false);
+const devServerUrl = ref(null);
+const clientDir = ref(null);
+const devScriptName = ref('dev');
+const isDevServerRunning = ref(false);
+
 const isExpanded = computed(() => terminalStore.isExpanded);
 
 // Check if we're running in Electron
@@ -366,6 +373,165 @@ function handleBlur() {
   }
 }
 
+// NPM command handlers
+
+// Find the client directory and get package.json info
+async function findClientDirectory() {
+  if (!window.electronAPI || !projectStore.projectPath) {
+    return null;
+  }
+  
+  try {
+    const result = await window.electronAPI.findClientDir(projectStore.projectPath);
+    if (result.success) {
+      clientDir.value = result.path;
+      
+      // Read package.json to find dev script
+      if (result.hasPackageJson) {
+        const pkgResult = await window.electronAPI.readPackageJson(result.path);
+        if (pkgResult.success && pkgResult.devScript) {
+          devScriptName.value = pkgResult.devScript;
+        }
+      }
+      
+      return result.path;
+    }
+  } catch (error) {
+    console.error('Error finding client directory:', error);
+  }
+  return null;
+}
+
+// Parse terminal output to extract URL
+function parseUrlFromOutput(data) {
+  // Common patterns for dev server URLs - clean ANSI codes first
+  const cleanData = data.replace(/\x1b\[[0-9;]*m/g, '');
+  
+  const patterns = [
+    /➜\s+Local:\s+(https?:\/\/[^\s\x1b]+)/i,
+    /Local:\s+(https?:\/\/[^\s\x1b]+)/i,
+    /Network:\s+(https?:\/\/[^\s\x1b]+)/i,
+    /localhost:\s*(https?:\/\/[^\s\x1b]+)/i,
+    /running at\s+(https?:\/\/[^\s\x1b]+)/i,
+    /Server running at\s+(https?:\/\/[^\s\x1b]+)/i,
+    /App running at:\s+(https?:\/\/[^\s\x1b]+)/i,
+    /listening on\s+(https?:\/\/[^\s\x1b]+)/i,
+    /(https?:\/\/localhost:\d+)/i,
+    /(https?:\/\/127\.0\.0\.1:\d+)/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = cleanData.match(pattern);
+    if (match) {
+      // Clean trailing slashes and special chars
+      return match[1].replace(/[\/\s]+$/, '');
+    }
+  }
+  return null;
+}
+
+async function handleNpmInstall() {
+  if (!window.electronAPI || ptyId === null || !projectStore.projectPath) {
+    terminal?.write(
+      "\x1b[31mNo project selected. Open a project first.\x1b[0m\r\n"
+    );
+    return;
+  }
+
+  isRunningNpmCommand.value = true;
+
+  // Find the client directory
+  const targetDir = await findClientDirectory();
+  if (!targetDir) {
+    terminal?.write(
+      "\x1b[31mNo package.json found in project or client directory.\x1b[0m\r\n"
+    );
+    isRunningNpmCommand.value = false;
+    return;
+  }
+
+  // cd to client directory and run npm install
+  const fullCommand = `cd "${targetDir}" && npm install\n`;
+  window.electronAPI.ptyWrite(ptyId, fullCommand);
+
+  // Reset running state after a short delay
+  setTimeout(() => {
+    isRunningNpmCommand.value = false;
+  }, 1000);
+}
+
+async function handleNpmRun() {
+  if (!window.electronAPI || ptyId === null || !projectStore.projectPath) {
+    terminal?.write(
+      "\x1b[31mNo project selected. Open a project first.\x1b[0m\r\n"
+    );
+    return;
+  }
+
+  isRunningNpmCommand.value = true;
+  devServerUrl.value = null; // Reset URL for new run
+  isDevServerRunning.value = true;
+
+  // Find the client directory
+  const targetDir = await findClientDirectory();
+  if (!targetDir) {
+    terminal?.write(
+      "\x1b[31mNo package.json found in project or client directory.\x1b[0m\r\n"
+    );
+    isRunningNpmCommand.value = false;
+    isDevServerRunning.value = false;
+    return;
+  }
+
+  // Replace the data listener with one that continuously monitors for URL
+  if (cleanupDataListener) {
+    cleanupDataListener();
+  }
+  
+  cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
+    if (id === ptyId && terminal) {
+      terminal.write(data);
+      terminal.scrollToBottom();
+      
+      // Always try to capture/update URL from output (port may change on restart)
+      const url = parseUrlFromOutput(data);
+      if (url) {
+        devServerUrl.value = url;
+        console.log('Dev server URL captured:', url);
+      }
+    }
+  });
+
+  // cd to client directory and run the dev script
+  const fullCommand = `cd "${targetDir}" && npm run ${devScriptName.value}\n`;
+  window.electronAPI.ptyWrite(ptyId, fullCommand);
+
+  // Reset running state after a short delay (command continues in background)
+  setTimeout(() => {
+    isRunningNpmCommand.value = false;
+  }, 1000);
+}
+
+async function handleNpmPreview() {
+  if (!devServerUrl.value) {
+    terminal?.write(
+      "\x1b[33mNo dev server URL detected yet. Run the dev server first.\x1b[0m\r\n"
+    );
+    return;
+  }
+
+  // Open the captured dev server URL in system browser
+  const url = devServerUrl.value;
+  console.log('Opening preview URL:', url);
+
+  if (window.electronAPI?.openExternal) {
+    await window.electronAPI.openExternal(url);
+  } else {
+    // Fallback for browser dev mode
+    window.open(url, "_blank");
+  }
+}
+
 // Watch for expansion to initialize terminal
 watch(isExpanded, (expanded) => {
   if (expanded) {
@@ -551,10 +717,42 @@ onUnmounted(() => {
         <span class="text-sm font-medium text-ui-text">Terminal</span>
         <span class="text-xs text-ui-textMuted">zsh</span>
       </div>
-      <div class="flex items-center gap-1">
+
+      <!-- NPM Command Buttons -->
+      <div class="flex items-center gap-1 pointer-events-auto">
+        <button
+          @click.stop="handleNpmInstall"
+          :disabled="isRunningNpmCommand || !projectStore.projectPath"
+          class="px-2 py-1 text-xs font-medium rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          title="npm install"
+        >
+          Install
+        </button>
+        <button
+          @click.stop="handleNpmRun"
+          :disabled="isRunningNpmCommand || !projectStore.projectPath"
+          class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          :title="`npm run ${devScriptName}`"
+        >
+          Run
+        </button>
+        <button
+          @click.stop="handleNpmPreview"
+          :disabled="!devServerUrl"
+          class="px-2 py-1 text-xs font-medium rounded bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+          :title="devServerUrl ? `Open ${devServerUrl}` : 'Run dev server first'"
+        >
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          <span>{{ devServerUrl ? devServerUrl.replace('http://', '').replace('https://', '') : 'Preview' }}</span>
+        </button>
+
+        <div class="w-px h-4 bg-ui-border mx-1"></div>
+
         <button
           @click.stop="handleToggle"
-          class="p-1.5 rounded hover:bg-ui-bgLight text-ui-textMuted hover:text-ui-text transition-colors pointer-events-auto"
+          class="p-1.5 rounded hover:bg-ui-bgLight text-ui-textMuted hover:text-ui-text transition-colors"
           title="Minimize (`)"
         >
           <svg

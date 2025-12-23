@@ -1,4 +1,4 @@
-import { ipcMain, dialog, app, BrowserWindow } from "electron";
+import { ipcMain, dialog, shell, app, BrowserWindow } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import pty from "node-pty";
@@ -21,7 +21,7 @@ class PtyManager {
    * @returns {Object} - { id, pid }
    */
   spawn(options = {}) {
-    const shell = process.env.SHELL || (os.platform() === "win32" ? "powershell.exe" : "zsh");
+    const shell2 = process.env.SHELL || (os.platform() === "win32" ? "powershell.exe" : "zsh");
     const cwd = options.cwd || os.homedir();
     const cols = options.cols || 80;
     const rows = options.rows || 24;
@@ -31,7 +31,7 @@ class PtyManager {
       TERM: "xterm-256color",
       COLORTERM: "truecolor"
     };
-    const ptyProcess = pty.spawn(shell, [], {
+    const ptyProcess = pty.spawn(shell2, [], {
       name: "xterm-256color",
       cols,
       rows,
@@ -351,12 +351,29 @@ function createWindow() {
     },
     backgroundColor: "#0f0f0f",
     titleBarStyle: "hiddenInset",
-    frame: process.platform === "darwin" ? false : true
+    frame: process.platform === "darwin" ? false : true,
+    show: false
+    // Don't show until ready
   });
   ptyManager = new PtyManager(mainWindow);
   archeonWatcher = new ArcheonWatcher(mainWindow);
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+  });
   if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+    const loadDevServer = async (retries = 5) => {
+      try {
+        await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+      } catch (err) {
+        if (retries > 0) {
+          console.log(`Waiting for Vite dev server... (${retries} retries left)`);
+          await new Promise((resolve) => setTimeout(resolve, 1e3));
+          return loadDevServer(retries - 1);
+        }
+        console.error("Failed to load Vite dev server:", err);
+      }
+    };
+    loadDevServer();
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname$1, "../dist/index.html"));
@@ -415,6 +432,72 @@ ipcMain.handle("fs:readFile", async (event, filePath) => {
   try {
     const content = await fs2.readFile(filePath, "utf-8");
     return { success: true, content };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+ipcMain.handle("shell:openExternal", async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+ipcMain.handle("fs:findClientDir", async (event, projectPath) => {
+  const fs2 = await import("fs/promises");
+  const pathModule = await import("path");
+  try {
+    const clientDir = pathModule.join(projectPath, "client");
+    try {
+      const stat = await fs2.stat(clientDir);
+      if (stat.isDirectory()) {
+        const pkgPath = pathModule.join(clientDir, "package.json");
+        try {
+          await fs2.access(pkgPath);
+          return { success: true, path: clientDir, hasPackageJson: true };
+        } catch {
+          return { success: true, path: clientDir, hasPackageJson: false };
+        }
+      }
+    } catch {
+    }
+    const rootPkgPath = pathModule.join(projectPath, "package.json");
+    try {
+      await fs2.access(rootPkgPath);
+      return { success: true, path: projectPath, hasPackageJson: true };
+    } catch {
+      return { success: false, error: "No package.json found in project or client directory" };
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+ipcMain.handle("fs:readPackageJson", async (event, dirPath) => {
+  const fs2 = await import("fs/promises");
+  const pathModule = await import("path");
+  try {
+    const pkgPath = pathModule.join(dirPath, "package.json");
+    const content = await fs2.readFile(pkgPath, "utf-8");
+    const pkg = JSON.parse(content);
+    const scripts = pkg.scripts || {};
+    let devScript = null;
+    let devCommand = null;
+    const devScriptNames = ["dev", "start", "serve", "develop", "run"];
+    for (const name of devScriptNames) {
+      if (scripts[name]) {
+        devScript = name;
+        devCommand = scripts[name];
+        break;
+      }
+    }
+    return {
+      success: true,
+      name: pkg.name,
+      scripts,
+      devScript,
+      devCommand
+    };
   } catch (error) {
     return { success: false, error: error.message };
   }

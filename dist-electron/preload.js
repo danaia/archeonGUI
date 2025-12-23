@@ -35,5 +35,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("archeon:arcon-changed", handler);
   },
   // ============ FILE SYSTEM ============
-  readFile: (filePath) => ipcRenderer.invoke("fs:readFile", filePath)
+  readFile: (filePath) => ipcRenderer.invoke("fs:readFile", filePath),
+  findClientDir: (projectPath) => ipcRenderer.invoke("fs:findClientDir", projectPath),
+  readPackageJson: (dirPath) => ipcRenderer.invoke("fs:readPackageJson", dirPath),
+  // ============ SHELL ============
+  openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url)
 });

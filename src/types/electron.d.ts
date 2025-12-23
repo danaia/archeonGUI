@@ -53,6 +53,27 @@ interface FileReadResult {
   error?: string;
 }
 
+interface ShellResult {
+  success: boolean;
+  error?: string;
+}
+
+interface FindClientDirResult {
+  success: boolean;
+  path?: string;
+  hasPackageJson?: boolean;
+  error?: string;
+}
+
+interface PackageJsonResult {
+  success: boolean;
+  name?: string;
+  scripts?: Record<string, string>;
+  devScript?: string;
+  devCommand?: string;
+  error?: string;
+}
+
 interface ElectronAPI {
   // Project
   openProject: () => Promise<OpenProjectResult>;
@@ -75,6 +96,11 @@ interface ElectronAPI {
 
   // File System
   readFile: (filePath: string) => Promise<FileReadResult>;
+  findClientDir: (projectPath: string) => Promise<FindClientDirResult>;
+  readPackageJson: (dirPath: string) => Promise<PackageJsonResult>;
+
+  // Shell
+  openExternal: (url: string) => Promise<ShellResult>;
 }
 
 declare global {
