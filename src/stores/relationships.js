@@ -161,22 +161,19 @@ export const useRelationshipStore = defineStore("relationships", () => {
     return result;
   }
 
-  // Initialize demo relationships for login flow
+  // Initialize demo relationships for login flow (horizontal layout)
   function initLoginFlowRelationships() {
     clearRelationships();
 
-    // Main flow: NED -> TSK -> CMP -> STO -> API -> FNC -> MDL -> OUT
-    createRelationship("0,0", "1,1", "FLOW"); // NED:login => TSK:submit
-    createRelationship("1,1", "2,2", "FLOW"); // TSK:submit => CMP:LoginForm
-    createRelationship("2,2", "3,2", "FLOW"); // CMP:LoginForm => STO:Auth
-    createRelationship("3,2", "4,3", "FLOW"); // STO:Auth => API:POST/auth/login
-    createRelationship("4,3", "5,4", "FLOW"); // API => FNC:auth.validateCredentials
-    createRelationship("5,4", "6,4", "FLOW"); // FNC => MDL:user.verify
-    createRelationship("6,4", "7,5", "FLOW"); // MDL => OUT:redirect
-
-    // Error branch
-    createRelationship("5,4", "5,6", "BRANCH"); // FNC -> ERR:auth.invalidCredentials
-    createRelationship("5,6", "6,6", "FLOW"); // ERR => OUT:toast
+    // Main flow: horizontal, row 0
+    // NED -> TSK -> CMP -> STO -> API -> FNC -> MDL -> OUT
+    createRelationship("0,0", "1,0", "FLOW"); // NED:login => TSK:submit
+    createRelationship("1,0", "2,0", "FLOW"); // TSK:submit => CMP:LoginForm
+    createRelationship("2,0", "3,0", "FLOW"); // CMP:LoginForm => STO:Auth
+    createRelationship("3,0", "4,0", "FLOW"); // STO:Auth => API:POST/auth/login
+    createRelationship("4,0", "5,0", "FLOW"); // API => FNC:auth.validateCredentials
+    createRelationship("5,0", "6,0", "FLOW"); // FNC => MDL:user.verify
+    createRelationship("6,0", "7,0", "FLOW"); // MDL => OUT:redirect
   }
 
   return {

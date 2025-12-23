@@ -1,11 +1,14 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useTileStore, useRelationshipStore, useUIStore } from "../stores";
+import { useProjectStore } from "../stores/project";
 import { GLYPH_TYPES, EDGE_TYPES } from "../types/glyphs.js";
+import * as monaco from "monaco-editor";
 
 const tileStore = useTileStore();
 const relationshipStore = useRelationshipStore();
 const uiStore = useUIStore();
+const projectStore = useProjectStore();
 
 const selectedTile = computed(() => tileStore.selectedTile);
 const selectedRelationship = computed(
@@ -13,11 +16,54 @@ const selectedRelationship = computed(
 );
 const drawerMode = computed(() => uiStore.drawerMode);
 
+// Monaco editor refs
+const monacoContainerRef = ref(null);
+let monacoEditor = null;
+
+// File content state
+const fileContent = ref(null);
+const fileLoading = ref(false);
+const fileError = ref(null);
+
 const isOpen = computed(() => {
   if (!uiStore.isDrawerOpen) return false;
   if (drawerMode.value === "tile") return !!selectedTile.value;
   if (drawerMode.value === "relationship") return !!selectedRelationship.value;
   return false;
+});
+
+// Check if selected tile has a file
+const hasFile = computed(() => {
+  return selectedTile.value?.file && projectStore.projectPath;
+});
+
+// Full file path
+const fullFilePath = computed(() => {
+  if (!hasFile.value) return null;
+  return `${projectStore.projectPath}/${selectedTile.value.file}`;
+});
+
+// Detect language from file extension
+const fileLanguage = computed(() => {
+  if (!selectedTile.value?.file) return "plaintext";
+  const ext = selectedTile.value.file.split(".").pop()?.toLowerCase();
+  const langMap = {
+    js: "javascript",
+    jsx: "javascript",
+    ts: "typescript",
+    tsx: "typescript",
+    vue: "html",
+    py: "python",
+    json: "json",
+    md: "markdown",
+    css: "css",
+    scss: "scss",
+    html: "html",
+    sql: "sql",
+    yaml: "yaml",
+    yml: "yaml",
+  };
+  return langMap[ext] || "plaintext";
 });
 
 // Get connected tiles for relationship mode
@@ -43,7 +89,96 @@ const tileRelationships = computed(() => {
   return relationshipStore.getRelationshipsForTile(selectedTile.value.id);
 });
 
+// Load file content when tile changes
+watch(
+  () => [selectedTile.value, isOpen.value],
+  async ([tile, open]) => {
+    if (!open || !tile?.file || !projectStore.projectPath) {
+      fileContent.value = null;
+      fileError.value = null;
+      return;
+    }
+
+    await loadFileContent();
+  },
+  { immediate: true }
+);
+
+// Update Monaco editor when content changes
+watch(
+  () => [fileContent.value, isOpen.value],
+  async ([content, open]) => {
+    if (open && content !== null) {
+      await nextTick();
+      initMonacoEditor();
+    }
+  }
+);
+
+async function loadFileContent() {
+  if (!window.electronAPI || !fullFilePath.value) {
+    fileError.value = "File viewing requires Electron";
+    return;
+  }
+
+  fileLoading.value = true;
+  fileError.value = null;
+
+  try {
+    const result = await window.electronAPI.readFile(fullFilePath.value);
+    if (result.success) {
+      fileContent.value = result.content;
+    } else {
+      fileError.value = result.error || "Failed to read file";
+    }
+  } catch (err) {
+    fileError.value = err.message;
+  }
+
+  fileLoading.value = false;
+}
+
+function initMonacoEditor() {
+  if (!monacoContainerRef.value || fileContent.value === null) return;
+
+  // Dispose existing editor
+  if (monacoEditor) {
+    monacoEditor.dispose();
+  }
+
+  // Create new editor
+  monacoEditor = monaco.editor.create(monacoContainerRef.value, {
+    value: fileContent.value,
+    language: fileLanguage.value,
+    theme: "vs-dark",
+    readOnly: true,
+    minimap: { enabled: false },
+    fontSize: 13,
+    fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+    lineNumbers: "on",
+    scrollBeyondLastLine: false,
+    wordWrap: "on",
+    automaticLayout: true,
+    padding: { top: 12, bottom: 12 },
+    renderLineHighlight: "none",
+    overviewRulerLanes: 0,
+    hideCursorInOverviewRuler: true,
+    scrollbar: {
+      verticalScrollbarSize: 8,
+      horizontalScrollbarSize: 8,
+    },
+  });
+}
+
+function destroyMonacoEditor() {
+  if (monacoEditor) {
+    monacoEditor.dispose();
+    monacoEditor = null;
+  }
+}
+
 function handleClose() {
+  destroyMonacoEditor();
   uiStore.closeDrawer();
   tileStore.deselectTile();
   relationshipStore.deselectRelationship();
@@ -58,6 +193,10 @@ function onFocusOut(e) {
     uiStore.clearFocus();
   }
 }
+
+onUnmounted(() => {
+  destroyMonacoEditor();
+});
 </script>
 
 <template>
@@ -195,7 +334,7 @@ function onFocusOut(e) {
             </div>
 
             <!-- Description -->
-            <div class="mb-4">
+            <div class="mb-4" v-if="selectedTile.typeInfo?.description">
               <h4
                 class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
               >
@@ -204,6 +343,77 @@ function onFocusOut(e) {
               <p class="text-sm text-ui-textMuted bg-ui-bgLight rounded-lg p-3">
                 {{ selectedTile.typeInfo?.description }}
               </p>
+            </div>
+
+            <!-- Archeon Metadata (when file exists) -->
+            <div class="mb-4" v-if="selectedTile.intent || selectedTile.chain || selectedTile.sections?.length">
+              <h4
+                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
+              >
+                Archeon Context
+              </h4>
+              <div class="bg-ui-bgLight rounded-lg p-3 text-sm space-y-2">
+                <div class="flex justify-between" v-if="selectedTile.intent">
+                  <span class="text-ui-textMuted">Intent</span>
+                  <span class="text-ui-text text-right max-w-[200px]">{{ selectedTile.intent }}</span>
+                </div>
+                <div class="flex justify-between" v-if="selectedTile.chain">
+                  <span class="text-ui-textMuted">Chain</span>
+                  <span class="font-mono text-cyan-400">{{ selectedTile.chain }}</span>
+                </div>
+                <div v-if="selectedTile.sections?.length">
+                  <span class="text-ui-textMuted block mb-1">Sections</span>
+                  <div class="flex flex-wrap gap-1">
+                    <span 
+                      v-for="section in selectedTile.sections" 
+                      :key="section"
+                      class="px-2 py-0.5 rounded text-xs bg-ui-bg text-ui-text"
+                    >
+                      {{ section }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- File Path -->
+            <div class="mb-4" v-if="selectedTile.file">
+              <h4
+                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
+              >
+                Source File
+              </h4>
+              <div class="bg-ui-bgLight rounded-lg p-3">
+                <code class="text-xs text-green-400 break-all">{{ selectedTile.file }}</code>
+              </div>
+            </div>
+
+            <!-- Monaco Code Viewer -->
+            <div class="mb-4" v-if="hasFile">
+              <h4
+                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider flex items-center justify-between"
+              >
+                <span>Code Preview</span>
+                <span class="text-xs font-normal normal-case text-ui-textMuted">{{ fileLanguage }}</span>
+              </h4>
+              
+              <!-- Loading state -->
+              <div v-if="fileLoading" class="bg-ui-bgLight rounded-lg p-8 flex items-center justify-center">
+                <div class="animate-spin w-6 h-6 border-2 border-ui-textMuted border-t-transparent rounded-full"></div>
+              </div>
+              
+              <!-- Error state -->
+              <div v-else-if="fileError" class="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
+                {{ fileError }}
+              </div>
+              
+              <!-- Monaco container -->
+              <div 
+                v-else-if="fileContent !== null"
+                ref="monacoContainerRef" 
+                class="rounded-lg overflow-hidden border border-ui-border"
+                style="height: 400px;"
+              ></div>
             </div>
 
             <!-- Connections -->

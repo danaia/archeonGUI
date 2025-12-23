@@ -52,6 +52,42 @@ export const useTileStore = defineStore("tiles", () => {
     return tile;
   }
 
+  /**
+   * Create a tile from archeon data (ARCHEON.index.json format)
+   * @param {number} col - Column position
+   * @param {number} row - Row position
+   * @param {Object} tileData - Tile data from archeon sync
+   */
+  function createTile(col, row, tileData) {
+    const key = getTileKey(col, row);
+    const typeInfo = GLYPH_TYPES[tileData.type] || GLYPH_TYPES.FNC;
+
+    const tile = {
+      col,
+      row,
+      id: key,
+      glyphType: tileData.type,
+      name: tileData.name,
+      qualifier: null,
+      label: tileData.label || `${tileData.type}:${tileData.name}`,
+      typeInfo: typeInfo,
+      // Archeon-specific fields
+      file: tileData.file || null,
+      intent: tileData.intent || null,
+      chain: tileData.chain || null,
+      sections: tileData.sections || [],
+      // Custom styling (optional override)
+      color: tileData.color || typeInfo.color,
+      icon: tileData.icon || typeInfo.icon,
+      layer: tileData.layer || typeInfo.layer,
+      data: {},
+      createdAt: Date.now(),
+    };
+
+    tiles.value.set(key, tile);
+    return tile;
+  }
+
   // Get tile at position (doesn't create)
   function getTile(col, row) {
     return tiles.value.get(getTileKey(col, row)) || null;
@@ -135,33 +171,19 @@ export const useTileStore = defineStore("tiles", () => {
   // Get all tiles as array
   const allTiles = computed(() => Array.from(tiles.value.values()));
 
-  // Initialize demo: Full-stack Login Flow
+  // Initialize demo: Full-stack Login Flow (horizontal layout)
   function initLoginFlowDemo() {
     clearTiles();
 
-    // Row 0: User Need
+    // All tiles on row 0, horizontal layout
     createGlyph(0, 0, "NED", "login", null);
-
-    // Row 1: User Task
-    createGlyph(1, 1, "TSK", "submit", null);
-
-    // Row 2: Frontend Components
-    createGlyph(2, 2, "CMP", "LoginForm", null);
-    createGlyph(3, 2, "STO", "Auth", null);
-
-    // Row 3: API Layer
-    createGlyph(4, 3, "API", "POST/auth/login", null);
-
-    // Row 4: Backend
-    createGlyph(5, 4, "FNC", "validateCredentials", "auth");
-    createGlyph(6, 4, "MDL", "verify", "user");
-
-    // Row 5: Outcomes
-    createGlyph(7, 5, "OUT", "redirect('/dashboard')", null);
-
-    // Error branch
-    createGlyph(5, 6, "ERR", "invalidCredentials", "auth");
-    createGlyph(6, 6, "OUT", "toast('Invalid password')", null);
+    createGlyph(1, 0, "TSK", "submit", null);
+    createGlyph(2, 0, "CMP", "LoginForm", null);
+    createGlyph(3, 0, "STO", "Auth", null);
+    createGlyph(4, 0, "API", "POST/auth/login", null);
+    createGlyph(5, 0, "FNC", "validateCredentials", "auth");
+    createGlyph(6, 0, "MDL", "verify", "user");
+    createGlyph(7, 0, "OUT", "redirect('/dashboard')", null);
   }
 
   return {
@@ -178,6 +200,7 @@ export const useTileStore = defineStore("tiles", () => {
     getTileKey,
     parseTileKey,
     createGlyph,
+    createTile,
     getTile,
     hasTile,
     selectTile,

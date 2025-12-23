@@ -1,12 +1,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { useTerminalStore, useUIStore } from "../stores";
+import { useProjectStore } from "../stores/project";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 
 const terminalStore = useTerminalStore();
 const uiStore = useUIStore();
+const projectStore = useProjectStore();
 
 const terminalRef = ref(null);
 const terminalContainerRef = ref(null);
@@ -16,69 +18,16 @@ const resizeStartSize = ref({ width: 0, height: 0 });
 
 let terminal = null;
 let fitAddon = null;
-let currentLine = "";
-let cursorPosition = 0;
+let ptyId = null;
+let cleanupDataListener = null;
+let cleanupExitListener = null;
 
 const isExpanded = computed(() => terminalStore.isExpanded);
 
-// Command execution simulation
-const commands = {
-  help: () => {
-    return [
-      "Available commands:",
-      "  help     - Show this help message",
-      "  clear    - Clear the terminal",
-      "  echo     - Print text",
-      "  date     - Show current date/time",
-      "  whoami   - Show current user",
-      "  pwd      - Print working directory",
-      "  ls       - List files (simulated)",
-      "  version  - Show version info",
-      "",
-    ].join("\r\n");
-  },
-  clear: () => {
-    terminal.clear();
-    return "";
-  },
-  echo: (args) => args.join(" "),
-  date: () => new Date().toString(),
-  whoami: () => "archeon",
-  pwd: () => terminalStore.cwd,
-  ls: () => {
-    return [
-      "Documents/",
-      "Downloads/",
-      "Projects/",
-      ".config/",
-      "README.md",
-    ].join("\r\n");
-  },
-  version: () => "Archeon Terminal v1.0.0\r\nBuilt with xterm.js",
-};
+// Check if we're running in Electron
+const isElectron = computed(() => !!window.electronAPI);
 
-function executeCommand(input) {
-  const parts = input.trim().split(/\s+/);
-  const cmd = parts[0]?.toLowerCase();
-  const args = parts.slice(1);
-
-  if (!cmd) return "";
-
-  if (commands[cmd]) {
-    return commands[cmd](args);
-  }
-
-  return `zsh: command not found: ${cmd}`;
-}
-
-function prompt() {
-  const promptText = `\x1b[32marcheon\x1b[0m:\x1b[34m${terminalStore.cwd}\x1b[0m$ `;
-  terminal.write("\r\n" + promptText);
-  currentLine = "";
-  cursorPosition = 0;
-}
-
-function initTerminal() {
+async function initTerminal() {
   if (!terminalRef.value || terminal) return;
 
   terminal = new Terminal({
@@ -118,121 +67,99 @@ function initTerminal() {
   terminal.loadAddon(fitAddon);
   terminal.open(terminalRef.value);
 
-  // Initial fit and welcome message
-  nextTick(() => {
-    fitAddon.fit();
+  // Initial fit
+  await nextTick();
+  fitAddon.fit();
+
+  if (isElectron.value) {
+    // Real PTY mode - spawn actual shell
+    await spawnPty();
+  } else {
+    // Fallback for browser dev - show message
     terminal.write(
-      "\x1b[32m╔══════════════════════════════════════╗\x1b[0m\r\n"
+      "\x1b[33m╔══════════════════════════════════════════════════╗\x1b[0m\r\n"
     );
     terminal.write(
-      "\x1b[32m║\x1b[0m    Archeon Terminal v1.0.0          \x1b[32m║\x1b[0m\r\n"
+      "\x1b[33m║\x1b[0m  Running in browser mode (no real terminal)     \x1b[33m║\x1b[0m\r\n"
     );
     terminal.write(
-      '\x1b[32m║\x1b[0m    Type "help" for commands          \x1b[32m║\x1b[0m\r\n'
+      "\x1b[33m║\x1b[0m  Run with Electron for full terminal support    \x1b[33m║\x1b[0m\r\n"
     );
-    terminal.write("\x1b[32m╚══════════════════════════════════════╝\x1b[0m");
-    prompt();
-  });
+    terminal.write(
+      "\x1b[33m╚══════════════════════════════════════════════════╝\x1b[0m\r\n"
+    );
+  }
+}
 
-  // Handle keyboard input
-  terminal.onKey(({ key, domEvent }) => {
-    const printable =
-      !domEvent.altKey && !domEvent.ctrlKey && !domEvent.metaKey;
+async function spawnPty() {
+  if (!window.electronAPI) return;
 
-    if (domEvent.key === "Enter") {
-      const output = executeCommand(currentLine);
-      if (output) {
-        terminal.write("\r\n" + output);
-      }
-      terminalStore.addToHistory(currentLine);
-      prompt();
-    } else if (domEvent.key === "Backspace") {
-      if (cursorPosition > 0) {
-        currentLine =
-          currentLine.slice(0, cursorPosition - 1) +
-          currentLine.slice(cursorPosition);
-        cursorPosition--;
-        terminal.write("\b \b");
-        // Rewrite rest of line if cursor wasn't at end
-        if (cursorPosition < currentLine.length) {
-          const remaining = currentLine.slice(cursorPosition);
-          terminal.write(remaining + " ");
-          terminal.write("\x1b[" + (remaining.length + 1) + "D");
-        }
-      }
-    } else if (domEvent.key === "ArrowUp") {
-      const histCmd = terminalStore.navigateHistory("up");
-      if (histCmd !== null) {
-        // Clear current line
-        terminal.write("\x1b[2K\r");
-        terminal.write(
-          `\x1b[32marcheon\x1b[0m:\x1b[34m${terminalStore.cwd}\x1b[0m$ `
-        );
-        terminal.write(histCmd);
-        currentLine = histCmd;
-        cursorPosition = histCmd.length;
-      }
-    } else if (domEvent.key === "ArrowDown") {
-      const histCmd = terminalStore.navigateHistory("down");
-      if (histCmd !== null) {
-        terminal.write("\x1b[2K\r");
-        terminal.write(
-          `\x1b[32marcheon\x1b[0m:\x1b[34m${terminalStore.cwd}\x1b[0m$ `
-        );
-        terminal.write(histCmd);
-        currentLine = histCmd;
-        cursorPosition = histCmd.length;
-      }
-    } else if (domEvent.key === "ArrowLeft") {
-      if (cursorPosition > 0) {
-        cursorPosition--;
-        terminal.write(key);
-      }
-    } else if (domEvent.key === "ArrowRight") {
-      if (cursorPosition < currentLine.length) {
-        cursorPosition++;
-        terminal.write(key);
-      }
-    } else if (domEvent.ctrlKey && domEvent.key === "c") {
-      terminal.write("^C");
-      prompt();
-    } else if (domEvent.ctrlKey && domEvent.key === "l") {
-      terminal.clear();
-      prompt();
-    } else if (printable) {
-      currentLine =
-        currentLine.slice(0, cursorPosition) +
-        key +
-        currentLine.slice(cursorPosition);
-      cursorPosition++;
-      terminal.write(key);
-      // Rewrite rest of line if cursor wasn't at end
-      if (cursorPosition < currentLine.length) {
-        const remaining = currentLine.slice(cursorPosition);
-        terminal.write(remaining);
-        terminal.write("\x1b[" + remaining.length + "D");
-      }
-    }
-  });
+  const cwd = projectStore.projectPath || undefined;
+  const { cols, rows } = fitAddon.proposeDimensions() || { cols: 80, rows: 24 };
 
-  terminal.onData((data) => {
-    // Handle paste
-    if (data.length > 1 && !data.startsWith("\x1b")) {
-      currentLine =
-        currentLine.slice(0, cursorPosition) +
-        data +
-        currentLine.slice(cursorPosition);
-      cursorPosition += data.length;
-      terminal.write(data);
-    }
-  });
+  try {
+    const result = await window.electronAPI.ptySpawn({ cwd, cols, rows });
+    ptyId = result.id;
+
+    // Listen for PTY data
+    cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
+      if (id === ptyId && terminal) {
+        terminal.write(data);
+      }
+    });
+
+    // Listen for PTY exit
+    cleanupExitListener = window.electronAPI.onPtyExit(({ id, exitCode }) => {
+      if (id === ptyId) {
+        terminal.write(`\r\n\x1b[33mProcess exited with code ${exitCode}\x1b[0m\r\n`);
+        ptyId = null;
+      }
+    });
+
+    // Send terminal input to PTY
+    terminal.onData((data) => {
+      if (ptyId !== null) {
+        window.electronAPI.ptyWrite(ptyId, data);
+      }
+    });
+
+  } catch (error) {
+    terminal.write(`\x1b[31mFailed to spawn terminal: ${error.message}\x1b[0m\r\n`);
+  }
 }
 
 function destroyTerminal() {
+  // Kill PTY process
+  if (ptyId !== null && window.electronAPI) {
+    window.electronAPI.ptyKill(ptyId);
+    ptyId = null;
+  }
+
+  // Cleanup listeners
+  if (cleanupDataListener) {
+    cleanupDataListener();
+    cleanupDataListener = null;
+  }
+  if (cleanupExitListener) {
+    cleanupExitListener();
+    cleanupExitListener = null;
+  }
+
+  // Dispose terminal
   if (terminal) {
     terminal.dispose();
     terminal = null;
     fitAddon = null;
+  }
+}
+
+// Resize PTY when terminal dimensions change
+function resizePty() {
+  if (!fitAddon || !window.electronAPI || ptyId === null) return;
+  
+  const dims = fitAddon.proposeDimensions();
+  if (dims) {
+    window.electronAPI.ptyResize(ptyId, dims.cols, dims.rows);
   }
 }
 
@@ -263,7 +190,10 @@ function startResize(e, direction) {
       );
     }
 
-    nextTick(() => fitAddon?.fit());
+    nextTick(() => {
+      fitAddon?.fit();
+      resizePty();
+    });
   };
 
   const handleUp = () => {
@@ -308,6 +238,9 @@ watch(isExpanded, (expanded) => {
       initTerminal();
       handleFocus();
     });
+  } else {
+    // Optionally keep PTY alive in background, or destroy
+    // destroyTerminal();
   }
 });
 
@@ -315,7 +248,10 @@ watch(isExpanded, (expanded) => {
 watch(
   () => [terminalStore.width, terminalStore.height],
   () => {
-    nextTick(() => fitAddon?.fit());
+    nextTick(() => {
+      fitAddon?.fit();
+      resizePty();
+    });
   }
 );
 
