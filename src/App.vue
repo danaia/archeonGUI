@@ -81,7 +81,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="w-full h-full relative overflow-hidden bg-canvas-bg">
+  <div class="w-full h-full relative overflow-hidden bg-black">
     <!-- Top Bar (when in Electron) -->
     <div
       v-if="isElectron"

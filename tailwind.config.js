@@ -5,9 +5,9 @@ export default {
     extend: {
       colors: {
         canvas: {
-          bg: "#1a1a2e",
-          grid: "#2d2d44",
-          gridLight: "#3d3d5c",
+          bg: "rgba(36, 36, 36, 1)",
+          grid: "#1a1a1a",
+          gridLight: "#2a2a2a",
         },
         tile: {
           default: "#252538",
@@ -17,9 +17,9 @@ export default {
           borderSelected: "#6366f1",
         },
         ui: {
-          bg: "#16162a",
-          bgLight: "#1e1e36",
-          border: "#2d2d44",
+          bg: "#0f0f0f",
+          bgLight: "#1a1a1a",
+          border: "#2a2a2a",
           text: "#e2e8f0",
           textMuted: "#94a3b8",
         },
