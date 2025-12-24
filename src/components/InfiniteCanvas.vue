@@ -823,7 +823,7 @@ onUnmounted(() => {
       v-if="uiStore.validationStatus.status !== 'idle'"
       class="absolute top-[50px] right-3"
     >
-      <Tooltip position="left" maxWidth="400px">
+      <Tooltip position="bottom" maxWidth="480px" :offsetX="-50">
         <div
           class="flex items-center gap-2 bg-ui-bg/80 backdrop-blur-sm rounded px-2.5 py-1.5 text-[10px] cursor-pointer transition-all duration-200 hover:bg-ui-bg/95"
           :class="{

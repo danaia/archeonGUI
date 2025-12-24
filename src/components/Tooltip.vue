@@ -14,6 +14,14 @@ const props = defineProps({
     type: String,
     default: "280px",
   },
+  offsetX: {
+    type: Number,
+    default: 0,
+  },
+  offsetY: {
+    type: Number,
+    default: 0,
+  },
 });
 
 const isVisible = ref(false);
@@ -40,20 +48,20 @@ function updatePosition() {
 
   switch (props.position) {
     case "bottom":
-      top = rect.bottom + offset;
-      left = rect.left + rect.width / 2;
+      top = rect.bottom + offset + props.offsetY;
+      left = rect.left + rect.width / 2 + props.offsetX;
       break;
     case "left":
-      top = rect.top + rect.height / 2;
-      left = rect.left - offset;
+      top = rect.top + rect.height / 2 + props.offsetY;
+      left = rect.left - offset + props.offsetX;
       break;
     case "right":
-      top = rect.top + rect.height / 2;
-      left = rect.right + offset;
+      top = rect.top + rect.height / 2 + props.offsetY;
+      left = rect.right + offset + props.offsetX;
       break;
     default: // top
-      top = rect.top - offset;
-      left = rect.left + rect.width / 2;
+      top = rect.top - offset + props.offsetY;
+      left = rect.left + rect.width / 2 + props.offsetX;
   }
 
   tooltipStyle.value = {
