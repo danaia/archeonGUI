@@ -419,7 +419,7 @@ async function copyValidationErrors() {
   // Add AI-specific mitigation guidance
   clipboardText += `AI MITIGATION PLAN:\n`;
   clipboardText += `==================\n\n`;
-  
+
   if (status.errors.length > 0) {
     clipboardText += `For ERRORS:\n`;
     clipboardText += `1. Analyze each error message carefully\n`;
@@ -449,7 +449,11 @@ async function copyValidationErrors() {
 
   try {
     await navigator.clipboard.writeText(clipboardText);
-    uiStore.addToast("Validation report with AI mitigation plan copied", "success", 3000);
+    uiStore.addToast(
+      "Validation report with AI mitigation plan copied",
+      "success",
+      3000
+    );
   } catch (err) {
     uiStore.addToast("Failed to copy to clipboard", "error", 3000);
   }
