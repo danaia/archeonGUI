@@ -88,6 +88,211 @@ const targetTile = computed(() => {
   return tileStore.getTile(coords.col, coords.row);
 });
 
+// Layer transition analysis for edges
+const layerTransition = computed(() => {
+  if (!sourceTile.value || !targetTile.value) return null;
+  const sourceLayer = sourceTile.value.typeInfo?.layer;
+  const targetLayer = targetTile.value.typeInfo?.layer;
+  
+  if (sourceLayer === targetLayer) {
+    return { type: 'same', description: `Stays within ${sourceLayer} layer` };
+  }
+  
+  // Define layer order for direction analysis
+  const layerOrder = ['meta', 'view', 'frontend', 'backend'];
+  const sourceIdx = layerOrder.indexOf(sourceLayer);
+  const targetIdx = layerOrder.indexOf(targetLayer);
+  
+  if (targetIdx > sourceIdx) {
+    return { 
+      type: 'down', 
+      description: `Descends from ${sourceLayer} → ${targetLayer}`,
+      meaning: 'User intent flows down to implementation'
+    };
+  } else {
+    return { 
+      type: 'up', 
+      description: `Ascends from ${sourceLayer} → ${targetLayer}`,
+      meaning: 'Data/response flows back up to user'
+    };
+  }
+});
+
+// Data flow explanation based on glyph types
+const dataFlowExplanation = computed(() => {
+  if (!sourceTile.value || !targetTile.value || !selectedRelationship.value) return null;
+  
+  const sourceType = sourceTile.value.glyphType;
+  const targetType = targetTile.value.glyphType;
+  const edgeType = selectedRelationship.value.edgeType;
+  
+  const explanations = {
+    // Need flows
+    'NED->TSK': 'User need triggers a specific task',
+    'NED->CMP': 'User need initiates component interaction',
+    'NED->V': 'User need opens a view/page',
+    
+    // Task flows
+    'TSK->CMP': 'Task triggers component action (click, submit, etc.)',
+    'TSK->API': 'Task initiates API call directly',
+    'TSK->FNC': 'Task executes business logic',
+    
+    // Component flows
+    'CMP->STO': 'Component reads/writes state',
+    'CMP->API': 'Component makes HTTP request',
+    'CMP->FNC': 'Component calls business logic',
+    'CMP->OUT': 'Component renders final outcome',
+    
+    // Store flows
+    'STO->CMP': 'State change triggers component re-render',
+    'STO->API': 'State change triggers API sync',
+    
+    // API flows
+    'API->MDL': 'Endpoint queries/mutates database',
+    'API->FNC': 'Endpoint calls server-side logic',
+    'API->STO': 'API response updates client state',
+    'API->OUT': 'API returns success response',
+    'API->ERR': 'API returns error response',
+    
+    // Function flows
+    'FNC->MDL': 'Function accesses data model',
+    'FNC->OUT': 'Function returns success result',
+    'FNC->ERR': 'Function throws/returns error',
+    'FNC->FNC': 'Function calls another function',
+    
+    // Model flows
+    'MDL->OUT': 'Data retrieved successfully',
+    'MDL->ERR': 'Database error occurred',
+    'MDL->STO': 'Model data syncs to client state',
+  };
+  
+  const key = `${sourceType}->${targetType}`;
+  let explanation = explanations[key];
+  
+  // Add edge type context
+  if (edgeType === 'BRANCH') {
+    explanation = explanation ? `[Error Path] ${explanation}` : 'Alternative path on failure';
+  } else if (edgeType === 'REFERENCE') {
+    explanation = explanation ? `[Reactive] ${explanation}` : 'Reactive dependency relationship';
+  }
+  
+  return explanation || `${sourceType} connects to ${targetType}`;
+});
+
+// Pattern recognition
+const patternInfo = computed(() => {
+  if (!sourceTile.value || !targetTile.value) return null;
+  
+  const sourceType = sourceTile.value.glyphType;
+  const targetType = targetTile.value.glyphType;
+  
+  const patterns = {
+    'CMP->API': {
+      name: 'Client-Server Communication',
+      icon: '🌐',
+      description: 'Frontend component making HTTP request to backend',
+      considerations: [
+        'Handle loading states',
+        'Implement error handling',
+        'Consider caching strategy',
+        'Validate request data'
+      ]
+    },
+    'API->MDL': {
+      name: 'Data Access Layer',
+      icon: '💾',
+      description: 'API endpoint querying the database',
+      considerations: [
+        'Validate input parameters',
+        'Handle database errors gracefully',
+        'Consider query optimization',
+        'Implement proper transactions'
+      ]
+    },
+    'CMP->STO': {
+      name: 'State Management',
+      icon: '📦',
+      description: 'Component interacting with global state',
+      considerations: [
+        'Keep state minimal and normalized',
+        'Avoid redundant state updates',
+        'Consider computed/derived state',
+        'Handle async state carefully'
+      ]
+    },
+    'STO->CMP': {
+      name: 'Reactive Binding',
+      icon: '🔄',
+      description: 'State changes triggering component updates',
+      considerations: [
+        'Minimize unnecessary re-renders',
+        'Use selectors for specific state slices',
+        'Consider memoization',
+        'Watch for circular updates'
+      ]
+    },
+    'NED->TSK': {
+      name: 'User Journey Start',
+      icon: '🎯',
+      description: 'User need being translated into actionable task',
+      considerations: [
+        'Clear user intent mapping',
+        'Consider accessibility',
+        'Provide feedback on action',
+        'Handle edge cases'
+      ]
+    },
+    'FNC->ERR': {
+      name: 'Error Handling',
+      icon: '⚠️',
+      description: 'Function reporting error condition',
+      considerations: [
+        'Provide meaningful error messages',
+        'Log errors for debugging',
+        'Consider recovery options',
+        'User-friendly error display'
+      ]
+    },
+    'API->ERR': {
+      name: 'API Error Response',
+      icon: '❌',
+      description: 'Endpoint returning error to client',
+      considerations: [
+        'Use appropriate HTTP status codes',
+        'Include error details in response',
+        'Sanitize error messages for security',
+        'Client-side error handling'
+      ]
+    }
+  };
+  
+  return patterns[`${sourceType}->${targetType}`] || null;
+});
+
+// Get chain context - what comes before and after this edge
+const chainContext = computed(() => {
+  if (!sourceTile.value || !targetTile.value) return null;
+  
+  const sourceKey = selectedRelationship.value.sourceTileKey;
+  const targetKey = selectedRelationship.value.targetTileKey;
+  
+  // Get what flows INTO the source
+  const sourceIncoming = relationshipStore.getRelationshipsForTile(sourceKey).incoming;
+  const predecessors = sourceIncoming.map(rel => {
+    const coords = tileStore.parseTileKey(rel.sourceTileKey);
+    return tileStore.getTile(coords.col, coords.row);
+  }).filter(Boolean);
+  
+  // Get what flows OUT OF the target
+  const targetOutgoing = relationshipStore.getRelationshipsForTile(targetKey).outgoing;
+  const successors = targetOutgoing.map(rel => {
+    const coords = tileStore.parseTileKey(rel.targetTileKey);
+    return tileStore.getTile(coords.col, coords.row);
+  }).filter(Boolean);
+  
+  return { predecessors, successors };
+});
+
 // Get relationships for selected tile
 const tileRelationships = computed(() => {
   if (!selectedTile.value) return { outgoing: [], incoming: [] };
@@ -387,59 +592,57 @@ onUnmounted(() => {
 
         <!-- Content -->
         <div class="flex-1 overflow-y-auto p-4">
-          <div class="flex justify-start">
-            <span
-              class="px-2 py-0.5 rounded text-xs uppercase mb-3"
-              :style="{
-                backgroundColor: selectedTile.typeInfo?.color + '20',
-                color: selectedTile.typeInfo?.color,
-              }"
-            >
-              {{ selectedTile.typeInfo?.layer }}
-            </span>
-          </div>
-          <!-- Glyph Header Card -->
-          <div
-            class="rounded-lg p-4 mb-4 border-2"
-            :style="{
-              backgroundColor: selectedTile.typeInfo?.bgColor,
-              borderColor: selectedTile.typeInfo?.color,
-            }"
-          >
-            <div class="flex items-center gap-3 mb-3">
-              <div
-                class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
-                :style="{
-                  backgroundColor: selectedTile.typeInfo?.color + '30',
-                }"
-              >
-                <span :style="{ color: selectedTile.typeInfo?.color }">
-                  {{ selectedTile.typeInfo?.icon }}
-                </span>
-              </div>
-              <div>
-                <h3 class="font-bold text-ui-text text-lg">
-                  {{ selectedTile.glyphType }}
-                </h3>
-                <p
-                  class="text-sm"
-                  :style="{ color: selectedTile.typeInfo?.color }"
-                >
-                  {{ selectedTile.typeInfo?.name }}
-                </p>
-              </div>
-            </div>
-
-            <div
-              class="text-ui-text font-mono text-sm bg-black/20 rounded px-3 py-2"
-            >
-              {{ selectedTile.label }}
-            </div>
-          </div>
-
           <!-- TILE MODE -->
           <template v-if="drawerMode === 'tile' && selectedTile">
-            <!-- Connections (TOP) -->
+            <div class="flex justify-start">
+              <span
+                class="px-2 py-0.5 rounded text-xs uppercase mb-3"
+                :style="{
+                  backgroundColor: selectedTile.typeInfo?.color + '20',
+                  color: selectedTile.typeInfo?.color,
+                }"
+              >
+                {{ selectedTile.typeInfo?.layer }}
+              </span>
+            </div>
+            <!-- Glyph Header Card -->
+            <div
+              class="rounded-lg p-4 mb-4 border-2"
+              :style="{
+                backgroundColor: selectedTile.typeInfo?.bgColor,
+                borderColor: selectedTile.typeInfo?.color,
+              }"
+            >
+              <div class="flex items-center gap-3 mb-3">
+                <div
+                  class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
+                  :style="{
+                    backgroundColor: selectedTile.typeInfo?.color + '30',
+                  }"
+                >
+                  <span :style="{ color: selectedTile.typeInfo?.color }">
+                    {{ selectedTile.typeInfo?.icon }}
+                  </span>
+                </div>
+                <div>
+                  <h3 class="font-bold text-ui-text text-lg">
+                    {{ selectedTile.glyphType }}
+                  </h3>
+                  <p
+                    class="text-sm"
+                    :style="{ color: selectedTile.typeInfo?.color }"
+                  >
+                    {{ selectedTile.typeInfo?.name }}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                class="text-ui-text font-mono text-sm bg-black/20 rounded px-3 py-2"
+              >
+                {{ selectedTile.label }}
+              </div>
+            </div>
 
             <!-- Archeon Context (SECOND) -->
             <div
@@ -610,7 +813,7 @@ onUnmounted(() => {
                   <h3 class="font-bold text-ui-text text-lg">
                     {{ selectedRelationship.edgeInfo?.name }}
                   </h3>
-                  <p class="text-sm text-ui-textMuted">
+                  <p class="text-sm text-ui-textMuted font-mono">
                     {{ selectedRelationship.edgeInfo?.symbol }}
                   </p>
                 </div>
@@ -621,76 +824,249 @@ onUnmounted(() => {
               </p>
             </div>
 
-            <!-- Source Tile -->
-            <div class="mb-4">
+            <!-- Data Flow Explanation -->
+            <div class="mb-4" v-if="dataFlowExplanation">
               <h4
                 class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
               >
-                Source
+                What This Connection Does
               </h4>
-              <div
-                v-if="sourceTile"
-                class="rounded-lg p-3 border"
-                :style="{
-                  backgroundColor: sourceTile.typeInfo?.bgColor,
-                  borderColor: sourceTile.typeInfo?.color + '60',
-                }"
+              <div class="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/30 rounded-lg p-3">
+                <p class="text-ui-text text-sm">{{ dataFlowExplanation }}</p>
+              </div>
+            </div>
+
+            <!-- Layer Transition -->
+            <div class="mb-4" v-if="layerTransition">
+              <h4
+                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
               >
+                Architecture Layer
+              </h4>
+              <div class="bg-ui-bgLight rounded-lg p-3 text-sm space-y-2">
                 <div class="flex items-center gap-2">
-                  <span
-                    :style="{ color: sourceTile.typeInfo?.color }"
-                    class="text-lg"
+                  <span 
+                    class="w-6 h-6 rounded flex items-center justify-center text-xs"
+                    :class="{
+                      'bg-cyan-500/20 text-cyan-400': layerTransition.type === 'same',
+                      'bg-amber-500/20 text-amber-400': layerTransition.type === 'down',
+                      'bg-green-500/20 text-green-400': layerTransition.type === 'up',
+                    }"
                   >
-                    {{ sourceTile.typeInfo?.icon }}
+                    {{ layerTransition.type === 'same' ? '↔' : layerTransition.type === 'down' ? '↓' : '↑' }}
                   </span>
-                  <span class="font-mono text-ui-text text-sm">{{
-                    sourceTile.label
-                  }}</span>
+                  <span class="text-ui-text">{{ layerTransition.description }}</span>
+                </div>
+                <p class="text-ui-textMuted text-xs" v-if="layerTransition.meaning">
+                  {{ layerTransition.meaning }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Pattern Recognition -->
+            <div class="mb-4" v-if="patternInfo">
+              <h4
+                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
+              >
+                {{ patternInfo.icon }} Pattern: {{ patternInfo.name }}
+              </h4>
+              <div class="bg-ui-bgLight rounded-lg p-3 text-sm space-y-3">
+                <p class="text-ui-text">{{ patternInfo.description }}</p>
+                <div>
+                  <span class="text-ui-textMuted text-xs uppercase tracking-wider">Engineering Considerations:</span>
+                  <ul class="mt-2 space-y-1">
+                    <li 
+                      v-for="(item, idx) in patternInfo.considerations" 
+                      :key="idx"
+                      class="text-ui-textMuted text-xs flex items-start gap-2"
+                    >
+                      <span class="text-green-400 mt-0.5">•</span>
+                      <span>{{ item }}</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
 
-            <!-- Arrow -->
-            <div class="flex justify-center my-4">
-              <div
-                class="w-10 h-10 rounded-full flex items-center justify-center"
-                :style="{
-                  backgroundColor: selectedRelationship.edgeInfo?.color + '30',
-                }"
-              >
-                <span
-                  class="text-xl"
-                  :style="{ color: selectedRelationship.edgeInfo?.color }"
-                  >↓</span
-                >
-              </div>
-            </div>
-
-            <!-- Target Tile -->
+            <!-- Connection Flow Visualization -->
             <div class="mb-4">
               <h4
                 class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
               >
-                Target
+                Connection Flow
               </h4>
-              <div
-                v-if="targetTile"
-                class="rounded-lg p-3 border"
-                :style="{
-                  backgroundColor: targetTile.typeInfo?.bgColor,
-                  borderColor: targetTile.typeInfo?.color + '60',
-                }"
+              <div class="bg-ui-bgLight rounded-lg p-4">
+                <!-- Predecessors (what flows into source) -->
+                <div v-if="chainContext?.predecessors?.length" class="mb-3">
+                  <div class="flex flex-wrap gap-1 mb-2">
+                    <span 
+                      v-for="pred in chainContext.predecessors" 
+                      :key="pred.id"
+                      class="px-2 py-0.5 rounded text-xs"
+                      :style="{
+                        backgroundColor: pred.typeInfo?.color + '20',
+                        color: pred.typeInfo?.color,
+                      }"
+                    >
+                      {{ pred.typeInfo?.icon }} {{ pred.glyphType }}
+                    </span>
+                  </div>
+                  <div class="flex justify-center text-ui-textMuted text-xs">↓</div>
+                </div>
+
+                <!-- Source Tile -->
+                <div
+                  v-if="sourceTile"
+                  class="rounded-lg p-3 border mb-2"
+                  :style="{
+                    backgroundColor: sourceTile.typeInfo?.bgColor,
+                    borderColor: sourceTile.typeInfo?.color + '60',
+                  }"
+                >
+                  <div class="flex items-center gap-2 mb-1">
+                    <span
+                      :style="{ color: sourceTile.typeInfo?.color }"
+                      class="text-lg"
+                    >
+                      {{ sourceTile.typeInfo?.icon }}
+                    </span>
+                    <span class="font-mono text-ui-text text-sm font-semibold">{{
+                      sourceTile.label
+                    }}</span>
+                  </div>
+                  <div class="text-xs text-ui-textMuted" v-if="sourceTile.intent">
+                    {{ sourceTile.intent }}
+                  </div>
+                  <div class="text-xs text-green-400 font-mono mt-1" v-if="sourceTile.file">
+                    {{ sourceTile.file }}
+                  </div>
+                </div>
+
+                <!-- Arrow with Edge Info -->
+                <div class="flex justify-center my-3">
+                  <div class="flex flex-col items-center gap-1">
+                    <div
+                      class="w-8 h-8 rounded-full flex items-center justify-center"
+                      :style="{
+                        backgroundColor: selectedRelationship.edgeInfo?.color,
+                      }"
+                    >
+                      <span class="text-white font-bold text-sm">
+                        {{ selectedRelationship.edgeInfo?.displaySymbol }}
+                      </span>
+                    </div>
+                    <span class="text-xs font-mono" :style="{ color: selectedRelationship.edgeInfo?.color }">
+                      {{ selectedRelationship.edgeInfo?.symbol }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Target Tile -->
+                <div
+                  v-if="targetTile"
+                  class="rounded-lg p-3 border mt-2"
+                  :style="{
+                    backgroundColor: targetTile.typeInfo?.bgColor,
+                    borderColor: targetTile.typeInfo?.color + '60',
+                  }"
+                >
+                  <div class="flex items-center gap-2 mb-1">
+                    <span
+                      :style="{ color: targetTile.typeInfo?.color }"
+                      class="text-lg"
+                    >
+                      {{ targetTile.typeInfo?.icon }}
+                    </span>
+                    <span class="font-mono text-ui-text text-sm font-semibold">{{
+                      targetTile.label
+                    }}</span>
+                  </div>
+                  <div class="text-xs text-ui-textMuted" v-if="targetTile.intent">
+                    {{ targetTile.intent }}
+                  </div>
+                  <div class="text-xs text-green-400 font-mono mt-1" v-if="targetTile.file">
+                    {{ targetTile.file }}
+                  </div>
+                </div>
+
+                <!-- Successors (what flows out of target) -->
+                <div v-if="chainContext?.successors?.length" class="mt-3">
+                  <div class="flex justify-center text-ui-textMuted text-xs mb-2">↓</div>
+                  <div class="flex flex-wrap gap-1">
+                    <span 
+                      v-for="succ in chainContext.successors" 
+                      :key="succ.id"
+                      class="px-2 py-0.5 rounded text-xs"
+                      :style="{
+                        backgroundColor: succ.typeInfo?.color + '20',
+                        color: succ.typeInfo?.color,
+                      }"
+                    >
+                      {{ succ.typeInfo?.icon }} {{ succ.glyphType }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Source & Target Details -->
+            <div class="mb-4">
+              <h4
+                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
               >
-                <div class="flex items-center gap-2">
-                  <span
-                    :style="{ color: targetTile.typeInfo?.color }"
-                    class="text-lg"
-                  >
-                    {{ targetTile.typeInfo?.icon }}
-                  </span>
-                  <span class="font-mono text-ui-text text-sm">{{
-                    targetTile.label
-                  }}</span>
+                Glyph Details
+              </h4>
+              <div class="space-y-3">
+                <!-- Source Details -->
+                <div class="bg-ui-bgLight rounded-lg p-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs uppercase tracking-wider text-ui-textMuted">Source</span>
+                    <span 
+                      class="px-1.5 py-0.5 rounded text-xs"
+                      :style="{
+                        backgroundColor: sourceTile?.typeInfo?.color + '20',
+                        color: sourceTile?.typeInfo?.color,
+                      }"
+                    >
+                      {{ sourceTile?.typeInfo?.layer }}
+                    </span>
+                  </div>
+                  <div class="text-sm space-y-1">
+                    <div class="flex justify-between">
+                      <span class="text-ui-textMuted">Type</span>
+                      <span class="text-ui-text">{{ sourceTile?.typeInfo?.name }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-ui-textMuted">Description</span>
+                    </div>
+                    <p class="text-ui-textMuted text-xs">{{ sourceTile?.typeInfo?.description }}</p>
+                  </div>
+                </div>
+
+                <!-- Target Details -->
+                <div class="bg-ui-bgLight rounded-lg p-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs uppercase tracking-wider text-ui-textMuted">Target</span>
+                    <span 
+                      class="px-1.5 py-0.5 rounded text-xs"
+                      :style="{
+                        backgroundColor: targetTile?.typeInfo?.color + '20',
+                        color: targetTile?.typeInfo?.color,
+                      }"
+                    >
+                      {{ targetTile?.typeInfo?.layer }}
+                    </span>
+                  </div>
+                  <div class="text-sm space-y-1">
+                    <div class="flex justify-between">
+                      <span class="text-ui-textMuted">Type</span>
+                      <span class="text-ui-text">{{ targetTile?.typeInfo?.name }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-ui-textMuted">Description</span>
+                    </div>
+                    <p class="text-ui-textMuted text-xs">{{ targetTile?.typeInfo?.description }}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -706,9 +1082,10 @@ onUnmounted(() => {
                 <div
                   v-for="(edge, key) in EDGE_TYPES"
                   :key="key"
-                  class="flex items-center gap-2 text-xs"
+                  class="flex items-center gap-2 text-xs p-2 rounded-lg transition-colors"
                   :class="{
-                    'opacity-50': edge.id !== selectedRelationship.edgeType,
+                    'bg-ui-bgLight': edge.id === selectedRelationship.edgeType,
+                    'opacity-40': edge.id !== selectedRelationship.edgeType,
                   }"
                 >
                   <span
@@ -720,7 +1097,7 @@ onUnmounted(() => {
                   <span class="font-mono text-ui-textMuted">{{
                     edge.symbol
                   }}</span>
-                  <span class="text-ui-text">{{ edge.name }}</span>
+                  <span class="text-ui-text flex-1">{{ edge.name }}</span>
                 </div>
               </div>
             </div>

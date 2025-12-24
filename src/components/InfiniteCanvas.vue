@@ -286,9 +286,6 @@ function handleMouseLeave() {
 
 // Tile interaction handlers
 function handleTileClick(tile, e) {
-  // Only allow interaction with complete tiles
-  if (!tile.isInteractive) return;
-
   e.stopPropagation();
   relationshipStore.deselectRelationship();
   tileStore.selectTile(tile.col, tile.row);
