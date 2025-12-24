@@ -136,7 +136,7 @@ onUnmounted(() => {
       v-if="isElectron"
       class="absolute top-0 left-0 right-0 h-10 bg-ui-bg border-b border-ui-border flex items-center px-4 z-30 app-drag"
     >
-      <div class="flex items-center gap-3 app-no-drag">
+      <div class="flex items-center gap-1 app-no-drag">
         <button
           @click="handleOpenProject"
           class="px-3 py-1.5 text-xs bg-ui-bgLight hover:bg-tile-borderSelected/20 text-ui-text rounded transition-colors flex items-center gap-2"
@@ -154,14 +154,13 @@ onUnmounted(() => {
               d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
             />
           </svg>
-          Open Project
         </button>
 
         <button
           v-if="hasProject"
           @click="handleUpdateArcon"
           :disabled="isUpdating"
-          class="px-3 py-1.5 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-3 py-1.5 text-xs bg-ui-bgLight hover:bg-tile-borderSelected/20 text-ui-text rounded transition-colors flex items-center gap-2"
           title="Save current tiles to ARCHEON.arcon"
         >
           <svg
@@ -186,7 +185,7 @@ onUnmounted(() => {
               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
             />
           </svg>
-          {{ isUpdating ? "Saving..." : "Update" }}
+          <!-- {{ isUpdating ? "Saving..." : "Update" }} -->
         </button>
       </div>
 
