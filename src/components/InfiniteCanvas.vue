@@ -1058,26 +1058,37 @@ onUnmounted(() => {
       </Tooltip>
     </div>
 
-    <!-- Legend -->
-    <div
-      class="absolute bottom-4 right-4 bg-ui-bg/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs pointer-events-none"
-    >
-      <div class="font-semibold text-ui-text mb-2">Glyph Layers</div>
-      <div class="space-y-1">
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded" style="background-color: #f59e0b"></div>
-          <span class="text-ui-textMuted">Meta (NED, TSK, OUT, ERR)</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded" style="background-color: #3b82f6"></div>
-          <span class="text-ui-textMuted">Frontend (CMP, STO)</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded" style="background-color: #14b8a6"></div>
-          <span class="text-ui-textMuted">Backend (API, FNC, MDL)</span>
+    <!-- Legend - Teleported to ensure it stays above terminal -->
+    <Teleport to="body">
+      <div
+        class="fixed bottom-4 right-4 bg-ui-bg/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs pointer-events-none z-[5000]"
+      >
+        <div class="font-semibold text-ui-text mb-2">Glyph Layers</div>
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <div
+              class="w-3 h-3 rounded"
+              style="background-color: #f59e0b"
+            ></div>
+            <span class="text-ui-textMuted">Meta (NED, TSK, OUT, ERR)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div
+              class="w-3 h-3 rounded"
+              style="background-color: #3b82f6"
+            ></div>
+            <span class="text-ui-textMuted">Frontend (CMP, STO)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div
+              class="w-3 h-3 rounded"
+              style="background-color: #14b8a6"
+            ></div>
+            <span class="text-ui-textMuted">Backend (API, FNC, MDL)</span>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 

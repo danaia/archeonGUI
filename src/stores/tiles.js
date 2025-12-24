@@ -542,9 +542,11 @@ export const useTileStore = defineStore("tiles", () => {
   /**
    * Generate ARCHEON.arcon content from current tiles
    * Groups tiles by row (chain) and generates versioned chain definitions
+   * Preserves edge types (=>, ->, ~>) from relationships
+   * @param {Object} relationshipStore - The relationship store for edge type lookup
    * @returns {string} - Generated arcon file content
    */
-  function generateArconContent() {
+  function generateArconContent(relationshipStore = null) {
     // Group tiles by row
     const rowGroups = new Map();
     for (const tile of tiles.value.values()) {
@@ -553,6 +555,13 @@ export const useTileStore = defineStore("tiles", () => {
       }
       rowGroups.get(tile.row).push(tile);
     }
+
+    // Edge type to symbol mapping
+    const edgeSymbols = {
+      FLOW: "=>",
+      BRANCH: "->",
+      REFERENCE: "~>",
+    };
 
     // Sort rows and generate chains
     const sortedRows = Array.from(rowGroups.keys()).sort((a, b) => a - b);
@@ -571,11 +580,34 @@ export const useTileStore = defineStore("tiles", () => {
       const chain = chains.value.get(row);
       const version = chain?.version || `v${row + 1}`;
 
-      // Generate glyph keys
-      const glyphKeys = tilesInRow.map((tile) => tile.label);
+      // Build chain with proper edge types
+      let chainParts = [];
+      for (let i = 0; i < tilesInRow.length; i++) {
+        const tile = tilesInRow[i];
+        chainParts.push(tile.label);
 
-      // Join with flow arrows
-      const chainDef = `@${version} ${glyphKeys.join(" => ")}`;
+        // Add connector if not the last tile
+        if (i < tilesInRow.length - 1 && relationshipStore) {
+          const nextTile = tilesInRow[i + 1];
+          const sourceTileKey = getTileKey(tile.col, tile.row);
+          const targetTileKey = getTileKey(nextTile.col, nextTile.row);
+
+          // Get relationship and its edge type
+          const relationship = relationshipStore.getRelationship(
+            sourceTileKey,
+            targetTileKey
+          );
+          const edgeType = relationship?.edgeType || "FLOW";
+          const symbol = edgeSymbols[edgeType] || "=>";
+
+          chainParts.push(` ${symbol} `);
+        } else if (i < tilesInRow.length - 1) {
+          // Default to flow if no relationship store
+          chainParts.push(" => ");
+        }
+      }
+
+      const chainDef = `@${version} ${chainParts.join("")}`;
       lines.push(chainDef);
     }
 

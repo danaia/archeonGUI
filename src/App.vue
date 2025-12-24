@@ -87,7 +87,7 @@ async function handleUpdateArcon() {
 
   isUpdating.value = true;
   try {
-    const content = tileStore.generateArconContent();
+    const content = tileStore.generateArconContent(relationshipStore);
     const result = await window.electronAPI.archeonWriteArcon(
       projectStore.projectPath,
       content

@@ -39,7 +39,7 @@ function getTypeStyles(type) {
 
 <template>
   <Teleport to="body">
-    <div class="fixed bottom-4 left-4 z-50 flex flex-col gap-2 max-w-md">
+    <div class="fixed bottom-4 left-4 z-[99999] flex flex-col gap-2 max-w-md">
       <TransitionGroup name="toast">
         <div
           v-for="toast in uiStore.toasts"

@@ -8,7 +8,7 @@ const props = defineProps({
   },
   position: {
     type: String,
-    default: "top", // top, bottom, left, right
+    default: "top", // top, bottom, left, right, center
   },
   maxWidth: {
     type: String,
@@ -47,6 +47,10 @@ function updatePosition() {
   let top, left;
 
   switch (props.position) {
+    case "center":
+      top = window.innerHeight / 2 + props.offsetY;
+      left = window.innerWidth / 2 + props.offsetX;
+      break;
     case "bottom":
       top = rect.bottom + offset + props.offsetY;
       left = rect.left + rect.width / 2 + props.offsetX;
@@ -73,6 +77,8 @@ function updatePosition() {
 
 const transformClass = computed(() => {
   switch (props.position) {
+    case "center":
+      return "-translate-x-1/2 -translate-y-1/2";
     case "bottom":
       return "-translate-x-1/2";
     case "left":
@@ -100,11 +106,11 @@ const transformClass = computed(() => {
       <Transition name="tooltip">
         <div
           v-if="isVisible"
-          :class="['fixed z-[9999] pointer-events-none', transformClass]"
+          :class="['fixed z-[99999] pointer-events-none', transformClass]"
           :style="tooltipStyle"
         >
           <div
-            class="bg-slate-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl border border-slate-700"
+            class="bg-slate-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl border border-slate-700 pointer-events-auto"
           >
             <slot name="content">
               <span v-html="text"></span>
