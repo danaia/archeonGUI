@@ -173,8 +173,12 @@ export function syncChainsToTiles(chains, projectPath = null) {
   }
 
   for (const edge of chainEdges) {
-    const sourceKey = labelChainToTileKey.get(`${edge.sourceLabel}:${edge.row}`);
-    const targetKey = labelChainToTileKey.get(`${edge.targetLabel}:${edge.row}`);
+    const sourceKey = labelChainToTileKey.get(
+      `${edge.sourceLabel}:${edge.row}`
+    );
+    const targetKey = labelChainToTileKey.get(
+      `${edge.targetLabel}:${edge.row}`
+    );
 
     if (sourceKey && targetKey) {
       relationshipStore.createRelationship(sourceKey, targetKey, edge.edgeType);

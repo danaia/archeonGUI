@@ -201,7 +201,7 @@ function handleWheel(e) {
   e.preventDefault();
   e.stopPropagation();
   canvasStore.zoomAt(e.clientX, e.clientY, e.deltaY);
-  
+
   // Debounced save camera on zoom
   debouncedSaveCamera();
 }

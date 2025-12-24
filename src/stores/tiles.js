@@ -557,19 +557,20 @@ export const useTileStore = defineStore("tiles", () => {
 
   /**
    * Generate ARCHEON.arcon content from current tiles
-   * Groups tiles by row (chain) and generates versioned chain definitions
+   * Groups tiles by chainIndex (original chain) and generates versioned chain definitions
    * Preserves edge types (=>, ->, ~>) from relationships
    * @param {Object} relationshipStore - The relationship store for edge type lookup
    * @returns {string} - Generated arcon file content
    */
   function generateArconContent(relationshipStore = null) {
-    // Group tiles by row
-    const rowGroups = new Map();
+    // Group tiles by chainIndex (original chain, not current row position)
+    const chainGroups = new Map();
     for (const tile of tiles.value.values()) {
-      if (!rowGroups.has(tile.row)) {
-        rowGroups.set(tile.row, []);
+      const chainIdx = tile.chainIndex ?? tile.row; // Fallback to row for old tiles
+      if (!chainGroups.has(chainIdx)) {
+        chainGroups.set(chainIdx, []);
       }
-      rowGroups.get(tile.row).push(tile);
+      chainGroups.get(chainIdx).push(tile);
     }
 
     // Edge type to symbol mapping
@@ -579,32 +580,32 @@ export const useTileStore = defineStore("tiles", () => {
       REFERENCE: "~>",
     };
 
-    // Sort rows and generate chains
-    const sortedRows = Array.from(rowGroups.keys()).sort((a, b) => a - b);
+    // Sort chains and generate definitions
+    const sortedChains = Array.from(chainGroups.keys()).sort((a, b) => a - b);
     const lines = [
       "# ARCHEON.arcon - Generated from Archeon GUI",
       "# Chain definitions: @version GLYPH:name => GLYPH:name => ...",
       "",
     ];
 
-    for (const row of sortedRows) {
-      const tilesInRow = rowGroups.get(row);
-      // Sort tiles by column
-      tilesInRow.sort((a, b) => a.col - b.col);
+    for (const chainIdx of sortedChains) {
+      const tilesInChain = chainGroups.get(chainIdx);
+      // Sort tiles by column (left to right order in the chain)
+      tilesInChain.sort((a, b) => a.col - b.col);
 
-      // Get chain info
-      const chain = chains.value.get(row);
-      const version = chain?.version || `v${row + 1}`;
+      // Get chain info from the original chain metadata
+      const chain = chains.value.get(chainIdx);
+      const version = chain?.version || `v${chainIdx + 1}`;
 
       // Build chain with proper edge types
       let chainParts = [];
-      for (let i = 0; i < tilesInRow.length; i++) {
-        const tile = tilesInRow[i];
+      for (let i = 0; i < tilesInChain.length; i++) {
+        const tile = tilesInChain[i];
         chainParts.push(tile.label);
 
         // Add connector if not the last tile
-        if (i < tilesInRow.length - 1 && relationshipStore) {
-          const nextTile = tilesInRow[i + 1];
+        if (i < tilesInChain.length - 1 && relationshipStore) {
+          const nextTile = tilesInChain[i + 1];
           const sourceTileKey = getTileKey(tile.col, tile.row);
           const targetTileKey = getTileKey(nextTile.col, nextTile.row);
 
@@ -617,7 +618,7 @@ export const useTileStore = defineStore("tiles", () => {
           const symbol = edgeSymbols[edgeType] || "=>";
 
           chainParts.push(` ${symbol} `);
-        } else if (i < tilesInRow.length - 1) {
+        } else if (i < tilesInChain.length - 1) {
           // Default to flow if no relationship store
           chainParts.push(" => ");
         }
