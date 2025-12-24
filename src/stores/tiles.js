@@ -41,6 +41,143 @@ export const useTileStore = defineStore("tiles", () => {
   // Currently hovered tile key
   const hoveredTileKey = ref(null);
 
+  // Undo/Redo history stacks
+  const undoStack = ref([]);
+  const redoStack = ref([]);
+  const maxHistorySize = 50; // Limit history to prevent memory issues
+
+  /**
+   * Capture current tile positions as a snapshot for undo/redo
+   * @returns {Array} - Array of tile position snapshots
+   */
+  function captureSnapshot() {
+    const snapshot = [];
+    for (const tile of tiles.value.values()) {
+      snapshot.push({
+        label: tile.label,
+        chainIndex: tile.chainIndex,
+        col: tile.col,
+        row: tile.row,
+      });
+    }
+    return snapshot;
+  }
+
+  /**
+   * Push current state to undo stack (call before making changes)
+   */
+  function pushUndoState() {
+    const snapshot = captureSnapshot();
+    undoStack.value.push(snapshot);
+
+    // Limit stack size
+    if (undoStack.value.length > maxHistorySize) {
+      undoStack.value.shift();
+    }
+
+    // Clear redo stack when new action is taken
+    redoStack.value = [];
+  }
+
+  /**
+   * Restore tile positions from a snapshot
+   * @param {Array} snapshot - Array of tile position snapshots
+   */
+  function restoreSnapshot(snapshot) {
+    // Build lookup map: "label:chainIndex" -> position
+    const positionMap = new Map();
+    for (const item of snapshot) {
+      const key = `${item.label}:${item.chainIndex}`;
+      positionMap.set(key, { col: item.col, row: item.row });
+    }
+
+    // Collect tiles to move
+    const tilesToMove = [];
+    for (const [key, tile] of tiles.value) {
+      const lookupKey = `${tile.label}:${tile.chainIndex}`;
+      const savedPos = positionMap.get(lookupKey);
+      if (
+        savedPos &&
+        (savedPos.col !== tile.col || savedPos.row !== tile.row)
+      ) {
+        tilesToMove.push({
+          tile,
+          oldKey: key,
+          newCol: savedPos.col,
+          newRow: savedPos.row,
+          newKey: getTileKey(savedPos.col, savedPos.row),
+        });
+      }
+    }
+
+    if (tilesToMove.length === 0) return false;
+
+    // Remove tiles from old positions
+    for (const { oldKey } of tilesToMove) {
+      tiles.value.delete(oldKey);
+    }
+
+    // Add tiles at restored positions
+    for (const { tile, newCol, newRow, newKey } of tilesToMove) {
+      tile.col = newCol;
+      tile.row = newRow;
+      tile.id = newKey;
+      tiles.value.set(newKey, tile);
+    }
+
+    return true;
+  }
+
+  /**
+   * Undo last tile movement
+   * @returns {boolean} - Whether undo was successful
+   */
+  function undo() {
+    if (undoStack.value.length === 0) return false;
+
+    // Save current state to redo stack
+    const currentSnapshot = captureSnapshot();
+    redoStack.value.push(currentSnapshot);
+
+    // Pop and restore previous state
+    const previousSnapshot = undoStack.value.pop();
+    return restoreSnapshot(previousSnapshot);
+  }
+
+  /**
+   * Redo last undone tile movement
+   * @returns {boolean} - Whether redo was successful
+   */
+  function redo() {
+    if (redoStack.value.length === 0) return false;
+
+    // Save current state to undo stack
+    const currentSnapshot = captureSnapshot();
+    undoStack.value.push(currentSnapshot);
+
+    // Pop and restore next state
+    const nextSnapshot = redoStack.value.pop();
+    return restoreSnapshot(nextSnapshot);
+  }
+
+  /**
+   * Check if undo is available
+   */
+  const canUndo = computed(() => undoStack.value.length > 0);
+
+  /**
+   * Check if redo is available
+   */
+  const canRedo = computed(() => redoStack.value.length > 0);
+
+  /**
+   * Clear undo/redo history
+   */
+  function clearHistory() {
+    undoStack.value = [];
+    redoStack.value = [];
+  }
+
   // Generate a tile key from coordinates
   function getTileKey(col, row) {
     return `${col},${row}`;
@@ -815,6 +952,8 @@ export const useTileStore = defineStore("tiles", () => {
     selectedTileKey,
     selectedTileKeys,
     hoveredTileKey,
+    undoStack,
+    redoStack,
 
     // Computed
     selectedTile,
@@ -823,6 +962,8 @@ export const useTileStore = defineStore("tiles", () => {
     pendingTiles,
     completeTiles,
     multiSelectedTiles,
+    canUndo,
+    canRedo,
 
     // Methods
     getTileKey,
@@ -858,5 +999,10 @@ export const useTileStore = defineStore("tiles", () => {
     saveLayout,
     loadLayout,
     clearSavedLayout,
+    // Undo/Redo
+    pushUndoState,
+    undo,
+    redo,
+    clearHistory,
   };
 });

@@ -21,6 +21,7 @@ export function useSelection(
   // Dragging selected tiles state
   const isDraggingTiles = ref(false);
   const dragStartGridPos = ref({ col: 0, row: 0 });
+  const hasMoved = ref(false); // Track if tiles actually moved during drag
 
   // Computed selection box in screen coordinates
   const selectionBox = computed(() => {
@@ -89,8 +90,12 @@ export function useSelection(
     if (tileStore.selectedTileKeys.size === 0) return;
 
     isDraggingTiles.value = true;
+    hasMoved.value = false; // Reset move tracking
     const worldPos = canvasStore.screenToWorld(screenX, screenY);
     dragStartGridPos.value = canvasStore.worldToGrid(worldPos.x, worldPos.y);
+    
+    // Capture undo state before any movement
+    tileStore.pushUndoState();
   }
 
   /**
@@ -113,6 +118,7 @@ export function useSelection(
       );
       if (moved) {
         dragStartGridPos.value = currentGrid;
+        hasMoved.value = true; // Track that tiles actually moved
       }
     }
   }
@@ -122,14 +128,20 @@ export function useSelection(
    */
   function endDragging() {
     if (isDraggingTiles.value) {
-      // Save tile positions to localStorage after tiles are moved
-      // Note: Edges are NOT persisted - they're always derived from .arcon chain definitions
-      const projectPath = getProjectPath ? getProjectPath() : null;
-      if (projectPath) {
-        tileStore.saveLayout(projectPath);
+      // If no actual movement occurred, pop the undo state we saved
+      if (!hasMoved.value) {
+        // Remove the undo state since nothing changed
+        tileStore.undoStack.pop();
+      } else {
+        // Save tile positions to localStorage after tiles are moved
+        const projectPath = getProjectPath ? getProjectPath() : null;
+        if (projectPath) {
+          tileStore.saveLayout(projectPath);
+        }
       }
     }
     isDraggingTiles.value = false;
+    hasMoved.value = false;
   }
 
   /**

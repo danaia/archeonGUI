@@ -55,6 +55,51 @@ function handleGlobalKeydown(e) {
     handleOpenProject();
   }
 
+  // Cmd/Ctrl + Z to undo
+  if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+    // Don't trigger if typing in an input
+    if (e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+      e.preventDefault();
+      if (tileStore.undo()) {
+        uiStore.addToast("Undo", "success", 1000);
+        // Save updated layout
+        if (projectStore.projectPath) {
+          tileStore.saveLayout(projectStore.projectPath);
+        }
+      }
+    }
+  }
+
+  // Cmd/Ctrl + Shift + Z to redo
+  if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
+    // Don't trigger if typing in an input
+    if (e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+      e.preventDefault();
+      if (tileStore.redo()) {
+        uiStore.addToast("Redo", "success", 1000);
+        // Save updated layout
+        if (projectStore.projectPath) {
+          tileStore.saveLayout(projectStore.projectPath);
+        }
+      }
+    }
+  }
+
+  // Cmd/Ctrl + Y to redo (alternative)
+  if ((e.metaKey || e.ctrlKey) && e.key === "y") {
+    // Don't trigger if typing in an input
+    if (e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+      e.preventDefault();
+      if (tileStore.redo()) {
+        uiStore.addToast("Redo", "success", 1000);
+        // Save updated layout
+        if (projectStore.projectPath) {
+          tileStore.saveLayout(projectStore.projectPath);
+        }
+      }
+    }
+  }
+
   // Delete key to delete selected tiles
   if (e.key === "Delete" || e.key === "Backspace") {
     // Don't trigger if typing in an input
