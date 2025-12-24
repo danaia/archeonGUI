@@ -860,7 +860,7 @@ onUnmounted(() => {
 
     <!-- Canvas Info Overlay -->
     <div
-      class="absolute top-[50px] left-3 flex items-center gap-3 bg-ui-bg/40 backdrop-blur-sm rounded px-3 py-1.5 text-[10px] text-ui-textMuted/70 pointer-events-none"
+      class="absolute top-[72px] left-3 flex items-center gap-3 bg-ui-bg/40 backdrop-blur-sm rounded px-3 py-1.5 text-[10px] text-ui-textMuted/70 pointer-events-none"
     >
       <span>{{ (canvasStore.zoom * 100).toFixed(0) }}%</span>
       <span class="opacity-40">•</span>
@@ -884,7 +884,7 @@ onUnmounted(() => {
     <!-- Validation Status Indicator -->
     <div
       v-if="uiStore.validationStatus.status !== 'idle'"
-      class="absolute top-[50px] right-3"
+      class="absolute top-[72px] right-3"
     >
       <Tooltip position="bottom" maxWidth="480px" :offsetX="-50">
         <div

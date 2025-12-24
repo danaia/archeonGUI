@@ -29,6 +29,7 @@ const relationshipStore = useRelationshipStore();
 const canvasStore = useCanvasStore();
 
 const isElectron = computed(() => !!window.electronAPI);
+const isMac = computed(() => navigator.platform.includes('Mac'));
 const projectName = computed(() => projectStore.projectName);
 const hasProject = computed(() => !!projectStore.projectPath);
 
@@ -206,11 +207,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="w-full h-full relative overflow-hidden bg-black">
+  <div class="w-full h-full relative overflow-hidden bg-black mt-4">
     <!-- Top Bar (when in Electron) -->
     <div
       v-if="isElectron"
-      class="absolute top-0 left-0 right-0 h-10 bg-ui-bg border-b border-ui-border flex items-center px-4 z-30 app-drag"
+      class="absolute top-0 left-0 right-0 h-16 bg-ui-bg border-b border-ui-border flex items-center pr-4 z-30 app-drag"
+      :class="{ 'pt-6 pl-2': isMac, 'px-4': !isMac }"
     >
       <div class="flex items-center gap-1 app-no-drag">
         <button
@@ -309,7 +311,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Main Canvas Layer -->
-    <InfiniteCanvas :class="{ 'pt-10': isElectron }" />
+    <InfiniteCanvas :class="{ 'pt-16': isElectron }" />
 
     <!-- Side Drawer Overlay -->
     <SideDrawer />

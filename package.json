@@ -33,5 +33,40 @@
     "vite": "^7.2.4",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.archeon.gui",
+    "productName": "ArcheonGUI",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": ["dmg", "zip"],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "notarize": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "ArcheonGUI needs to access system events",
+        "NSSystemAdministrationUsageDescription": "ArcheonGUI needs to run shell commands"
+      }
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Development",
+      "maintainer": "Archeon <info@archeon.dev>",
+      "vendor": "Archeon"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "afterPack": "./scripts/afterPack.cjs",
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ]
   }
 }

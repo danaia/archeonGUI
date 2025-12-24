@@ -5,13 +5,45 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import pty from "node-pty";
 import os from "os";
+import fs from "fs";
 import chokidar from "chokidar";
-import fs from "fs/promises";
+import fs$1 from "fs/promises";
 class PtyManager {
   constructor(mainWindow2) {
     this.mainWindow = mainWindow2;
     this.terminals = /* @__PURE__ */ new Map();
     this.nextId = 1;
+  }
+  /**
+   * Determine the shell to use based on OS and availability
+   * @returns {string} - Shell executable path
+   */
+  getShell() {
+    if (process.env.SHELL && fs.existsSync(process.env.SHELL)) {
+      return process.env.SHELL;
+    }
+    const platform = os.platform();
+    if (platform === "win32") {
+      return "powershell.exe";
+    }
+    const shellPaths = [
+      "/bin/zsh",
+      // Modern macOS and Ubuntu
+      "/usr/bin/zsh",
+      // Alternative Linux location
+      "/bin/bash",
+      // Fallback
+      "/usr/bin/bash",
+      // Alternative bash location
+      "/bin/sh"
+      // Last resort
+    ];
+    for (const shellPath of shellPaths) {
+      if (fs.existsSync(shellPath)) {
+        return shellPath;
+      }
+    }
+    return platform === "darwin" ? "/bin/zsh" : "/bin/bash";
   }
   /**
    * Spawn a new PTY terminal
@@ -23,37 +55,52 @@ class PtyManager {
    * @returns {Object} - { id, pid }
    */
   spawn(options = {}) {
-    const shell2 = process.env.SHELL || (os.platform() === "win32" ? "powershell.exe" : "zsh");
+    const shell2 = this.getShell();
     const cwd = options.cwd || os.homedir();
     const cols = options.cols || 80;
     const rows = options.rows || 24;
+    console.log(`[PTY] Spawning shell: ${shell2}`);
+    console.log(`[PTY] Working directory: ${cwd}`);
+    console.log(`[PTY] Platform: ${os.platform()}`);
     const env = {
       ...process.env,
       ...options.env,
       TERM: "xterm-256color",
       COLORTERM: "truecolor"
     };
-    const ptyProcess = pty.spawn(shell2, [], {
-      name: "xterm-256color",
-      cols,
-      rows,
-      cwd,
-      env
-    });
-    const id = this.nextId++;
-    this.terminals.set(id, ptyProcess);
-    ptyProcess.onData((data) => {
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.webContents.send("pty:data", { id, data });
-      }
-    });
-    ptyProcess.onExit(({ exitCode, signal }) => {
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.webContents.send("pty:exit", { id, exitCode, signal });
-      }
-      this.terminals.delete(id);
-    });
-    return { id, pid: ptyProcess.pid };
+    const shellArgs = [];
+    if (shell2.includes("zsh") || shell2.includes("bash")) {
+      shellArgs.push("-l");
+    }
+    console.log(`[PTY] Shell args: ${JSON.stringify(shellArgs)}`);
+    try {
+      const ptyProcess = pty.spawn(shell2, shellArgs, {
+        name: "xterm-256color",
+        cols,
+        rows,
+        cwd,
+        env,
+        useConpty: false
+        // Disable ConPTY on Windows, doesn't affect macOS/Linux
+      });
+      const id = this.nextId++;
+      this.terminals.set(id, ptyProcess);
+      ptyProcess.onData((data) => {
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          this.mainWindow.webContents.send("pty:data", { id, data });
+        }
+      });
+      ptyProcess.onExit(({ exitCode, signal }) => {
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          this.mainWindow.webContents.send("pty:exit", { id, exitCode, signal });
+        }
+        this.terminals.delete(id);
+      });
+      return { id, pid: ptyProcess.pid };
+    } catch (error) {
+      console.error(`Failed to spawn PTY with shell ${shell2}:`, error);
+      throw new Error(`PTY spawn failed: ${error.message}`);
+    }
   }
   /**
    * Write data to a PTY
@@ -120,7 +167,7 @@ class ArcheonWatcher {
     const archeonDir = path.join(projectPath, "archeon");
     let archeonDirExists = false;
     try {
-      await fs.access(archeonDir);
+      await fs$1.access(archeonDir);
       archeonDirExists = true;
     } catch {
       archeonDirExists = false;
@@ -215,7 +262,7 @@ class ArcheonWatcher {
   async readIndexFile(projectPath) {
     const indexPath = path.join(projectPath, "archeon", "ARCHEON.index.json");
     try {
-      const content = await fs.readFile(indexPath, "utf-8");
+      const content = await fs$1.readFile(indexPath, "utf-8");
       const data = JSON.parse(content);
       return { success: true, data, path: indexPath };
     } catch (error) {
@@ -233,7 +280,7 @@ class ArcheonWatcher {
   async readArconFile(projectPath) {
     const arconPath = path.join(projectPath, "archeon", "ARCHEON.arcon");
     try {
-      const content = await fs.readFile(arconPath, "utf-8");
+      const content = await fs$1.readFile(arconPath, "utf-8");
       const chains = this.parseArconChains(content);
       return { success: true, content, chains, path: arconPath };
     } catch (error) {
@@ -332,11 +379,11 @@ class ArcheonWatcher {
     try {
       const archeonDir = path.join(projectPath, "archeon");
       try {
-        await fs.access(archeonDir);
+        await fs$1.access(archeonDir);
       } catch {
-        await fs.mkdir(archeonDir, { recursive: true });
+        await fs$1.mkdir(archeonDir, { recursive: true });
       }
-      await fs.writeFile(arconPath, content, "utf-8");
+      await fs$1.writeFile(arconPath, content, "utf-8");
       return { success: true, path: arconPath };
     } catch (error) {
       return { success: false, error: error.message };
