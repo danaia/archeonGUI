@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, nextTick } from "vue";
 import {
   InfiniteCanvas,
   SideDrawer,
@@ -61,6 +61,8 @@ function handleGlobalKeydown(e) {
     if (e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
       e.preventDefault();
       if (tileStore.undo()) {
+        // Rebuild edges after tile positions change (nextTick ensures Vue reactivity has propagated)
+        nextTick(() => relationshipStore.rebuildEdges());
         uiStore.addToast("Undo", "success", 1000);
         // Save updated layout
         if (projectStore.projectPath) {
@@ -76,6 +78,8 @@ function handleGlobalKeydown(e) {
     if (e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
       e.preventDefault();
       if (tileStore.redo()) {
+        // Rebuild edges after tile positions change (nextTick ensures Vue reactivity has propagated)
+        nextTick(() => relationshipStore.rebuildEdges());
         uiStore.addToast("Redo", "success", 1000);
         // Save updated layout
         if (projectStore.projectPath) {
@@ -91,6 +95,8 @@ function handleGlobalKeydown(e) {
     if (e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
       e.preventDefault();
       if (tileStore.redo()) {
+        // Rebuild edges after tile positions change (nextTick ensures Vue reactivity has propagated)
+        nextTick(() => relationshipStore.rebuildEdges());
         uiStore.addToast("Redo", "success", 1000);
         // Save updated layout
         if (projectStore.projectPath) {

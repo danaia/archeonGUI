@@ -90,11 +90,46 @@ export function syncChainsToTiles(chains, projectPath = null) {
   glyphChains.forEach((chain, rowIndex) => {
     const glyphs = chain.glyphs;
 
-    // Create chain metadata
+    // Build edge info for this chain first (before creating chain metadata)
+    const chainEdgesList = [];
+    for (let i = 0; i < glyphs.length - 1; i++) {
+      const sourceGlyph = glyphs[i];
+      const targetGlyph = glyphs[i + 1];
+
+      // Determine edge type from the raw chain
+      let edgeType = "FLOW";
+      if (chain.raw) {
+        const edgeMatch = chain.raw.match(
+          new RegExp(`${escapeRegExp(sourceGlyph.key)}\\s*(=>|~>|->)`)
+        );
+        if (edgeMatch) {
+          const edgeSymbol = edgeMatch[1];
+          if (edgeSymbol === "->") edgeType = "BRANCH";
+          else if (edgeSymbol === "~>") edgeType = "REACTIVE";
+        }
+      }
+
+      chainEdgesList.push({
+        sourceLabel: sourceGlyph.key,
+        targetLabel: targetGlyph.key,
+        edgeType,
+      });
+
+      // Also add to global chainEdges for initial creation
+      chainEdges.push({
+        sourceLabel: sourceGlyph.key,
+        targetLabel: targetGlyph.key,
+        edgeType,
+        row: rowIndex,
+      });
+    }
+
+    // Create chain metadata with edges
     tileStore.createChain(rowIndex, {
       version: chain.version,
       raw: chain.raw,
       glyphCount: glyphs.length,
+      edges: chainEdgesList,
     });
 
     // Create tiles for each glyph in the chain (left to right)
@@ -123,32 +158,6 @@ export function syncChainsToTiles(chains, projectPath = null) {
 
       tileStore.createTile(colIndex, rowIndex, tile);
     });
-
-    // Store edge info for this chain (will create relationships after layout restore)
-    for (let i = 0; i < glyphs.length - 1; i++) {
-      const sourceGlyph = glyphs[i];
-      const targetGlyph = glyphs[i + 1];
-
-      // Determine edge type from the raw chain
-      let edgeType = "FLOW";
-      if (chain.raw) {
-        const edgeMatch = chain.raw.match(
-          new RegExp(`${escapeRegExp(sourceGlyph.key)}\\s*(=>|~>|->)`)
-        );
-        if (edgeMatch) {
-          const edgeSymbol = edgeMatch[1];
-          if (edgeSymbol === "->") edgeType = "BRANCH";
-          else if (edgeSymbol === "~>") edgeType = "REACTIVE";
-        }
-      }
-
-      chainEdges.push({
-        sourceLabel: sourceGlyph.key,
-        targetLabel: targetGlyph.key,
-        edgeType,
-        row: rowIndex, // Track which chain/row this edge belongs to
-      });
-    }
   });
 
   // Try to restore saved tile positions BEFORE creating relationships

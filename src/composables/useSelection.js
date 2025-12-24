@@ -93,7 +93,7 @@ export function useSelection(
     hasMoved.value = false; // Reset move tracking
     const worldPos = canvasStore.screenToWorld(screenX, screenY);
     dragStartGridPos.value = canvasStore.worldToGrid(worldPos.x, worldPos.y);
-    
+
     // Capture undo state before any movement
     tileStore.pushUndoState();
   }

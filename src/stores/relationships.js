@@ -297,6 +297,63 @@ export const useRelationshipStore = defineStore("relationships", () => {
   }
 
   /**
+   * Rebuild all edges based on current tile positions and chain data.
+   * This should be called after undo/redo to reconnect edges to moved tiles.
+   * Uses the stored edge definitions from chain metadata.
+   */
+  function rebuildEdges() {
+    const tileStore = useTileStore();
+
+    // Clear all existing relationships
+    clearRelationships();
+
+    // Group tiles by chainIndex (original chain membership)
+    const chainTiles = new Map();
+    for (const tile of tileStore.allTiles) {
+      const chainIdx = tile.chainIndex;
+      if (!chainTiles.has(chainIdx)) {
+        chainTiles.set(chainIdx, []);
+      }
+      chainTiles.get(chainIdx).push(tile);
+    }
+
+    // Get chain data from the tiles store
+    const chainsData = tileStore.chains;
+
+    // For each chain, create edges using stored edge definitions
+    for (const [chainIdx, tilesInChain] of chainTiles) {
+      const chainData = chainsData.get(chainIdx);
+      if (!chainData || !chainData.edges || chainData.edges.length === 0) {
+        continue;
+      }
+
+      // Build a map from label to tile for this chain
+      const labelToTile = new Map();
+      for (const tile of tilesInChain) {
+        labelToTile.set(tile.label, tile);
+      }
+
+      // Create edges using stored edge definitions
+      for (const edge of chainData.edges) {
+        const sourceTile = labelToTile.get(edge.sourceLabel);
+        const targetTile = labelToTile.get(edge.targetLabel);
+
+        if (sourceTile && targetTile) {
+          const sourceKey = tileStore.getTileKey(
+            sourceTile.col,
+            sourceTile.row
+          );
+          const targetKey = tileStore.getTileKey(
+            targetTile.col,
+            targetTile.row
+          );
+          createRelationship(sourceKey, targetKey, edge.edgeType);
+        }
+      }
+    }
+  }
+
+  /**
    * Parse a tile key like "0,1" to coordinates
    * @param {string} key - Tile key
    * @returns {{col: number, row: number}}
@@ -351,5 +408,7 @@ export const useRelationshipStore = defineStore("relationships", () => {
     saveEdges,
     loadEdges,
     clearSavedEdges,
+    // Edge rebuilding (for undo/redo)
+    rebuildEdges,
   };
 });

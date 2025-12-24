@@ -385,6 +385,7 @@ export const useTileStore = defineStore("tiles", () => {
       version: chainData.version || null,
       raw: chainData.raw || "",
       glyphCount: chainData.glyphCount || 0,
+      edges: chainData.edges || [], // Store edge definitions for rebuilding
       confirmedCount: 0,
       isActive: false,
       createdAt: Date.now(),
