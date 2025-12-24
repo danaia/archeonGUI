@@ -12,6 +12,7 @@ import {
   useProjectStore,
   useTileStore,
   useRelationshipStore,
+  useCanvasStore,
 } from "./stores";
 import {
   initArcheonSync,
@@ -25,6 +26,7 @@ const uiStore = useUIStore();
 const projectStore = useProjectStore();
 const tileStore = useTileStore();
 const relationshipStore = useRelationshipStore();
+const canvasStore = useCanvasStore();
 
 const isElectron = computed(() => !!window.electronAPI);
 const projectName = computed(() => projectStore.projectName);
@@ -100,6 +102,29 @@ async function handleUpdateArcon() {
     console.error("Error updating ARCHEON.arcon:", err);
   }
   isUpdating.value = false;
+}
+
+/**
+ * Reset tile positions to original chain layout from .arcon
+ * Clears saved positions and camera from localStorage and re-syncs from arcon
+ */
+async function handleResetLayout() {
+  if (!hasProject.value) return;
+
+  // Clear saved layout and camera from localStorage
+  tileStore.clearSavedLayout(projectStore.projectPath);
+  canvasStore.resetCamera(projectStore.projectPath);
+
+  // Re-sync from arcon to restore original positions
+  if (projectStore.arconData?.chains) {
+    syncChainsToTiles(projectStore.arconData.chains);
+    // Re-confirm completed glyphs
+    if (projectStore.indexData) {
+      confirmGlyphsFromIndex(projectStore.indexData);
+    }
+  }
+
+  uiStore.addToast("Layout and camera reset to defaults", "success", 2000);
 }
 
 onMounted(async () => {
@@ -185,7 +210,28 @@ onUnmounted(() => {
               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
             />
           </svg>
-          <!-- {{ isUpdating ? "Saving..." : "Update" }} -->
+        </button>
+
+        <!-- Reset Layout Button -->
+        <button
+          v-if="hasProject"
+          @click="handleResetLayout"
+          class="px-3 py-1.5 text-xs bg-ui-bgLight hover:bg-amber-500/20 text-ui-text rounded transition-colors flex items-center gap-2"
+          title="Reset to original chain layout from .arcon"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
         </button>
       </div>
 

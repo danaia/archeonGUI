@@ -17,6 +17,9 @@ const relationshipStore = useRelationshipStore();
 const uiStore = useUIStore();
 const projectStore = useProjectStore();
 
+// Helper to get current project path for layout persistence
+const getProjectPath = () => projectStore.projectPath;
+
 // Multi-selection and drag-to-move composable
 const {
   isSelecting,
@@ -29,10 +32,21 @@ const {
   updateDragging,
   endDragging,
   cancelAll: cancelSelection,
-} = useSelection(canvasStore, tileStore, relationshipStore);
+} = useSelection(canvasStore, tileStore, relationshipStore, getProjectPath);
 
 const canvasRef = ref(null);
 const lastMousePos = ref({ x: 0, y: 0 });
+
+// Debounced camera save (to avoid excessive writes on zoom)
+let cameraSaveTimeout = null;
+function debouncedSaveCamera() {
+  if (cameraSaveTimeout) clearTimeout(cameraSaveTimeout);
+  cameraSaveTimeout = setTimeout(() => {
+    if (projectStore.projectPath) {
+      canvasStore.saveCamera(projectStore.projectPath);
+    }
+  }, 300);
+}
 
 // Get visible tiles with screen positions (only tiles that exist)
 const visibleTiles = computed(() => {
@@ -187,6 +201,9 @@ function handleWheel(e) {
   e.preventDefault();
   e.stopPropagation();
   canvasStore.zoomAt(e.clientX, e.clientY, e.deltaY);
+  
+  // Debounced save camera on zoom
+  debouncedSaveCamera();
 }
 
 function handleMouseDown(e) {
@@ -231,6 +248,10 @@ function handleMouseMove(e) {
 
 function handleMouseUp(e) {
   if (e.button === 1 || e.button === 0) {
+    // Save camera if we were panning
+    if (canvasStore.isPanning && projectStore.projectPath) {
+      canvasStore.saveCamera(projectStore.projectPath);
+    }
     canvasStore.isPanning = false;
     endSelection();
     endDragging();
@@ -352,8 +373,9 @@ onMounted(() => {
     canvasRef.value.addEventListener("wheel", handleWheel, { passive: false });
   }
 
-  // Run initial validation if project is loaded
+  // Load saved camera position if project is loaded
   if (projectStore.projectPath) {
+    canvasStore.loadCamera(projectStore.projectPath);
     uiStore.runValidation(projectStore.projectPath);
   }
 

@@ -3,6 +3,20 @@ import { ref, computed } from "vue";
 import { EDGE_TYPES } from "../types/glyphs.js";
 import { useTileStore } from "./tiles.js";
 
+// localStorage key prefix for edge persistence
+const EDGES_STORAGE_PREFIX = "archeon:edges:";
+const EDGES_VERSION = 1;
+
+/**
+ * Get storage key for edges for a project path
+ * @param {string} projectPath - Project root path
+ * @returns {string} - localStorage key
+ */
+function getEdgesStorageKey(projectPath) {
+  if (!projectPath) return null;
+  return EDGES_STORAGE_PREFIX + btoa(projectPath);
+}
+
 export const useRelationshipStore = defineStore("relationships", () => {
   // Map of relationships: key is "source->target", value is relationship data
   const relationships = ref(new Map());
@@ -161,6 +175,137 @@ export const useRelationshipStore = defineStore("relationships", () => {
     return result;
   }
 
+  /**
+   * Save current edge data to localStorage
+   * Edges are stored by source/target tile labels (not grid keys) for persistence
+   * @param {string} projectPath - Project root path
+   * @param {Object} tileStore - Tile store for label lookups
+   */
+  function saveEdges(projectPath, tileStore) {
+    const storageKey = getEdgesStorageKey(projectPath);
+    if (!storageKey) {
+      console.warn("Cannot save edges: no project path");
+      return false;
+    }
+
+    try {
+      const edgesData = {
+        version: EDGES_VERSION,
+        savedAt: Date.now(),
+        edges: [],
+      };
+
+      // Save edges using tile labels instead of grid keys
+      for (const rel of relationships.value.values()) {
+        // Get source and target tiles to extract labels
+        const sourceCoords = parseRelationshipKeyToCoords(rel.sourceTileKey);
+        const targetCoords = parseRelationshipKeyToCoords(rel.targetTileKey);
+
+        const sourceTile = tileStore.getTile(
+          sourceCoords.col,
+          sourceCoords.row
+        );
+        const targetTile = tileStore.getTile(
+          targetCoords.col,
+          targetCoords.row
+        );
+
+        if (sourceTile && targetTile) {
+          edgesData.edges.push({
+            sourceLabel: sourceTile.label,
+            targetLabel: targetTile.label,
+            edgeType: rel.edgeType,
+          });
+        }
+      }
+
+      localStorage.setItem(storageKey, JSON.stringify(edgesData));
+      console.log(
+        `Edges saved for ${projectPath}: ${edgesData.edges.length} edges`
+      );
+      return true;
+    } catch (err) {
+      console.error("Failed to save edges:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Load and apply saved edge data from localStorage
+   * @param {string} projectPath - Project root path
+   * @param {Object} tileStore - Tile store for tile lookups
+   * @returns {boolean} - Whether edges were successfully loaded
+   */
+  function loadEdges(projectPath, tileStore) {
+    const storageKey = getEdgesStorageKey(projectPath);
+    if (!storageKey) return false;
+
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (!stored) return false;
+
+      const edgesData = JSON.parse(stored);
+
+      // Version check
+      if (edgesData.version !== EDGES_VERSION) {
+        console.warn(
+          `Edges version mismatch: expected ${EDGES_VERSION}, got ${edgesData.version}`
+        );
+      }
+
+      // Build a map of label -> tile key for current tiles
+      const labelToKey = new Map();
+      for (const tile of tileStore.allTiles) {
+        labelToKey.set(tile.label, tileStore.getTileKey(tile.col, tile.row));
+      }
+
+      // Clear existing relationships and recreate from saved data
+      clearRelationships();
+
+      let loadedCount = 0;
+      for (const savedEdge of edgesData.edges) {
+        const sourceKey = labelToKey.get(savedEdge.sourceLabel);
+        const targetKey = labelToKey.get(savedEdge.targetLabel);
+
+        if (sourceKey && targetKey) {
+          createRelationship(sourceKey, targetKey, savedEdge.edgeType);
+          loadedCount++;
+        } else {
+          console.warn(
+            `Could not restore edge: ${savedEdge.sourceLabel} -> ${savedEdge.targetLabel}`
+          );
+        }
+      }
+
+      console.log(`Edges loaded for ${projectPath}: ${loadedCount} edges`);
+      return true;
+    } catch (err) {
+      console.error("Failed to load edges:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Clear saved edges for a project
+   * @param {string} projectPath - Project root path
+   */
+  function clearSavedEdges(projectPath) {
+    const storageKey = getEdgesStorageKey(projectPath);
+    if (storageKey) {
+      localStorage.removeItem(storageKey);
+    }
+  }
+
+  /**
+   * Parse a tile key like "0,1" to coordinates
+   * @param {string} key - Tile key
+   * @returns {{col: number, row: number}}
+   */
+  function parseRelationshipKeyToCoords(key) {
+    const [col, row] = key.split(",").map(Number);
+    return { col, row };
+  }
+
   // Initialize demo relationships for login flow (horizontal layout)
   function initLoginFlowRelationships() {
     clearRelationships();
@@ -202,5 +347,9 @@ export const useRelationshipStore = defineStore("relationships", () => {
     clearRelationships,
     getRelationshipsForTile,
     initLoginFlowRelationships,
+    // Edge persistence
+    saveEdges,
+    loadEdges,
+    clearSavedEdges,
   };
 });

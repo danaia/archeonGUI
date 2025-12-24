@@ -2,8 +2,17 @@ import { ref, computed } from "vue";
 
 /**
  * Composable for handling multi-tile selection and drag-to-move
+ * @param {Object} canvasStore - Canvas store for coordinate transformations
+ * @param {Object} tileStore - Tile store for tile operations
+ * @param {Object} relationshipStore - Relationship store for edge operations
+ * @param {Function} getProjectPath - Function to get current project path for persistence
  */
-export function useSelection(canvasStore, tileStore, relationshipStore) {
+export function useSelection(
+  canvasStore,
+  tileStore,
+  relationshipStore,
+  getProjectPath = null
+) {
   // Selection box state for drag-select
   const isSelecting = ref(false);
   const selectionStart = ref({ x: 0, y: 0 });
@@ -109,9 +118,17 @@ export function useSelection(canvasStore, tileStore, relationshipStore) {
   }
 
   /**
-   * End dragging tiles
+   * End dragging tiles and persist layout
    */
   function endDragging() {
+    if (isDraggingTiles.value) {
+      // Save tile positions to localStorage after tiles are moved
+      // Note: Edges are NOT persisted - they're always derived from .arcon chain definitions
+      const projectPath = getProjectPath ? getProjectPath() : null;
+      if (projectPath) {
+        tileStore.saveLayout(projectPath);
+      }
+    }
     isDraggingTiles.value = false;
   }
 

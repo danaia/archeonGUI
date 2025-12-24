@@ -51,12 +51,18 @@ export function initArcheonSync() {
  * Sync chains from ARCHEON.arcon to tiles and relationships
  * Each chain becomes a row. Glyphs flow left-to-right starting with NED.
  * All glyphs start in PENDING state.
+ * After initial sync, attempts to restore saved positions from localStorage.
  *
  * @param {Array} chains - Parsed chain definitions from arcon
+ * @param {string} projectPath - Project path for layout persistence (optional)
  */
-export function syncChainsToTiles(chains) {
+export function syncChainsToTiles(chains, projectPath = null) {
   const tileStore = useTileStore();
   const relationshipStore = useRelationshipStore();
+  const projectStore = useProjectStore();
+
+  // Use provided projectPath or get from store
+  const currentProjectPath = projectPath || projectStore.projectPath;
 
   // Clear existing state
   tileStore.clearTiles();
@@ -76,6 +82,9 @@ export function syncChainsToTiles(chains) {
 
     return true;
   });
+
+  // Store chain edge info for later relationship creation (after layout restore)
+  const chainEdges = [];
 
   // Create tiles for each chain (each chain = 1 row)
   glyphChains.forEach((chain, rowIndex) => {
@@ -115,12 +124,10 @@ export function syncChainsToTiles(chains) {
       tileStore.createTile(colIndex, rowIndex, tile);
     });
 
-    // Create relationships between consecutive glyphs in the chain
+    // Store edge info for this chain (will create relationships after layout restore)
     for (let i = 0; i < glyphs.length - 1; i++) {
       const sourceGlyph = glyphs[i];
       const targetGlyph = glyphs[i + 1];
-      const sourceKey = tileStore.getTileKey(i, rowIndex);
-      const targetKey = tileStore.getTileKey(i + 1, rowIndex);
 
       // Determine edge type from the raw chain
       let edgeType = "FLOW";
@@ -135,9 +142,48 @@ export function syncChainsToTiles(chains) {
         }
       }
 
-      relationshipStore.createRelationship(sourceKey, targetKey, edgeType);
+      chainEdges.push({
+        sourceLabel: sourceGlyph.key,
+        targetLabel: targetGlyph.key,
+        edgeType,
+        row: rowIndex, // Track which chain/row this edge belongs to
+      });
     }
   });
+
+  // Try to restore saved tile positions BEFORE creating relationships
+  // This ensures edges connect to tiles at their saved positions
+  if (currentProjectPath) {
+    const layoutLoaded = tileStore.loadLayout(currentProjectPath);
+
+    if (layoutLoaded) {
+      console.log(
+        `Archeon: Restored saved tile positions for ${currentProjectPath}`
+      );
+    }
+  }
+
+  // Now create relationships using tile labels AND chainIndex to find current tile keys
+  // This ensures edges connect tiles within the same chain, even if labels are duplicated across chains
+  // Key format: "label:chainIndex" to handle duplicate labels in different chains
+  const labelChainToTileKey = new Map();
+  for (const tile of tileStore.allTiles) {
+    const key = `${tile.label}:${tile.chainIndex}`;
+    labelChainToTileKey.set(key, tileStore.getTileKey(tile.col, tile.row));
+  }
+
+  for (const edge of chainEdges) {
+    const sourceKey = labelChainToTileKey.get(`${edge.sourceLabel}:${edge.row}`);
+    const targetKey = labelChainToTileKey.get(`${edge.targetLabel}:${edge.row}`);
+
+    if (sourceKey && targetKey) {
+      relationshipStore.createRelationship(sourceKey, targetKey, edge.edgeType);
+    } else {
+      console.warn(
+        `Could not create edge: ${edge.sourceLabel} -> ${edge.targetLabel} (chain ${edge.row})`
+      );
+    }
+  }
 }
 
 /**

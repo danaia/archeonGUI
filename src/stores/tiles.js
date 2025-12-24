@@ -2,6 +2,21 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { GLYPH_TYPES } from "../types/glyphs.js";
 
+// localStorage key prefix for layout persistence
+const LAYOUT_STORAGE_PREFIX = "archeon:layout:";
+const LAYOUT_VERSION = 1;
+
+/**
+ * Get storage key for a project path
+ * @param {string} projectPath - Project root path
+ * @returns {string} - localStorage key
+ */
+function getLayoutStorageKey(projectPath) {
+  if (!projectPath) return null;
+  // Use base64 encoding of path for safe key
+  return LAYOUT_STORAGE_PREFIX + btoa(projectPath);
+}
+
 // Glyph execution states (file-driven)
 export const GLYPH_STATES = {
   PENDING: "pending", // Exists in .arcon, not yet in index
@@ -79,6 +94,7 @@ export const useTileStore = defineStore("tiles", () => {
     const tile = {
       col,
       row,
+      chainIndex: row, // Immutable: which chain this tile belongs to (used for layout persistence)
       id: key,
       glyphType: tileData.type,
       name: tileData.name,
@@ -622,6 +638,145 @@ export const useTileStore = defineStore("tiles", () => {
     hoveredTileKey.value = null;
   }
 
+  /**
+   * Save current tile positions and layout to localStorage
+   * Uses label + chainIndex as key to handle duplicate labels across chains
+   * @param {string} projectPath - Project root path (used as storage key)
+   */
+  function saveLayout(projectPath) {
+    const storageKey = getLayoutStorageKey(projectPath);
+    if (!storageKey) {
+      console.warn("Cannot save layout: no project path");
+      return false;
+    }
+
+    try {
+      const layoutData = {
+        version: LAYOUT_VERSION,
+        savedAt: Date.now(),
+        tiles: [],
+      };
+
+      // Save tile positions keyed by label + chainIndex (immutable chain identifier)
+      for (const tile of tiles.value.values()) {
+        layoutData.tiles.push({
+          label: tile.label,
+          chainIndex: tile.chainIndex, // Immutable: which chain this tile belongs to
+          col: tile.col,
+          row: tile.row,
+        });
+      }
+
+      localStorage.setItem(storageKey, JSON.stringify(layoutData));
+      console.log(
+        `Layout saved for ${projectPath}: ${layoutData.tiles.length} tiles`
+      );
+      return true;
+    } catch (err) {
+      console.error("Failed to save layout:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Load and apply saved tile positions from localStorage
+   * Uses label + chainIndex as key to handle duplicate labels across chains
+   * @param {string} projectPath - Project root path (used as storage key)
+   * @returns {boolean} - Whether layout was successfully loaded and applied
+   */
+  function loadLayout(projectPath) {
+    const storageKey = getLayoutStorageKey(projectPath);
+    if (!storageKey) return false;
+
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (!stored) return false;
+
+      const layoutData = JSON.parse(stored);
+
+      // Version check for future migrations
+      if (layoutData.version !== LAYOUT_VERSION) {
+        console.warn(
+          `Layout version mismatch: expected ${LAYOUT_VERSION}, got ${layoutData.version}`
+        );
+        // For now, still try to apply - can add migration logic later
+      }
+
+      // Build a map of "label:chainIndex" -> saved position
+      // This handles duplicate labels across different chains
+      const savedPositions = new Map();
+      for (const savedTile of layoutData.tiles) {
+        // Use chainIndex if available, fall back to originalRow, then row (for backwards compat)
+        const chainIdx =
+          savedTile.chainIndex ?? savedTile.originalRow ?? savedTile.row;
+        const key = `${savedTile.label}:${chainIdx}`;
+        savedPositions.set(key, {
+          col: savedTile.col,
+          row: savedTile.row,
+        });
+      }
+
+      // Apply saved positions to existing tiles
+      // We need to move tiles to new positions, handling potential conflicts
+      const tilesToMove = [];
+
+      for (const [key, tile] of tiles.value) {
+        // Use chainIndex (immutable) for lookup
+        const lookupKey = `${tile.label}:${tile.chainIndex}`;
+        const savedPos = savedPositions.get(lookupKey);
+        if (
+          savedPos &&
+          (savedPos.col !== tile.col || savedPos.row !== tile.row)
+        ) {
+          tilesToMove.push({
+            tile,
+            oldKey: key,
+            newCol: savedPos.col,
+            newRow: savedPos.row,
+            newKey: getTileKey(savedPos.col, savedPos.row),
+          });
+        }
+      }
+
+      if (tilesToMove.length === 0) {
+        console.log("Layout loaded: no position changes needed");
+        return true;
+      }
+
+      // Remove tiles from old positions
+      for (const { oldKey } of tilesToMove) {
+        tiles.value.delete(oldKey);
+      }
+
+      // Add tiles at new positions
+      for (const { tile, newCol, newRow, newKey } of tilesToMove) {
+        tile.col = newCol;
+        tile.row = newRow;
+        tile.id = newKey;
+        tiles.value.set(newKey, tile);
+      }
+
+      console.log(
+        `Layout loaded for ${projectPath}: ${tilesToMove.length} tiles repositioned`
+      );
+      return true;
+    } catch (err) {
+      console.error("Failed to load layout:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Clear saved layout for a project
+   * @param {string} projectPath - Project root path
+   */
+  function clearSavedLayout(projectPath) {
+    const storageKey = getLayoutStorageKey(projectPath);
+    if (storageKey) {
+      localStorage.removeItem(storageKey);
+    }
+  }
+
   // Get all tiles as array
   const allTiles = computed(() => Array.from(tiles.value.values()));
 
@@ -698,5 +853,9 @@ export const useTileStore = defineStore("tiles", () => {
     clearMultiSelection,
     selectTilesInBounds,
     moveSelectedTiles,
+    // Layout persistence
+    saveLayout,
+    loadLayout,
+    clearSavedLayout,
   };
 });

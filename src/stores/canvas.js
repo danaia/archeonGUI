@@ -1,6 +1,19 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+// localStorage key prefix for camera persistence
+const CAMERA_STORAGE_PREFIX = 'archeon:camera:'
+
+/**
+ * Get storage key for camera state for a project path
+ * @param {string} projectPath - Project root path
+ * @returns {string} - localStorage key
+ */
+function getCameraStorageKey(projectPath) {
+  if (!projectPath) return null
+  return CAMERA_STORAGE_PREFIX + btoa(projectPath)
+}
+
 export const useCanvasStore = defineStore('canvas', () => {
   // Canvas viewport state
   const viewportWidth = ref(window.innerWidth)
@@ -87,7 +100,80 @@ export const useCanvasStore = defineStore('canvas', () => {
     viewportWidth.value = width
     viewportHeight.value = height
   }
-  
+
+  /**
+   * Save current camera state (pan + zoom) to localStorage
+   * @param {string} projectPath - Project root path (used as storage key)
+   */
+  function saveCamera(projectPath) {
+    const storageKey = getCameraStorageKey(projectPath)
+    if (!storageKey) return false
+
+    try {
+      const cameraData = {
+        cameraX: cameraX.value,
+        cameraY: cameraY.value,
+        zoom: zoom.value,
+        savedAt: Date.now()
+      }
+      localStorage.setItem(storageKey, JSON.stringify(cameraData))
+      return true
+    } catch (err) {
+      console.error('Failed to save camera:', err)
+      return false
+    }
+  }
+
+  /**
+   * Load and apply saved camera state from localStorage
+   * @param {string} projectPath - Project root path (used as storage key)
+   * @returns {boolean} - Whether camera was successfully loaded
+   */
+  function loadCamera(projectPath) {
+    const storageKey = getCameraStorageKey(projectPath)
+    if (!storageKey) return false
+
+    try {
+      const stored = localStorage.getItem(storageKey)
+      if (!stored) return false
+
+      const cameraData = JSON.parse(stored)
+      
+      if (typeof cameraData.cameraX === 'number') {
+        cameraX.value = cameraData.cameraX
+      }
+      if (typeof cameraData.cameraY === 'number') {
+        cameraY.value = cameraData.cameraY
+      }
+      if (typeof cameraData.zoom === 'number') {
+        zoom.value = Math.max(minZoom.value, Math.min(maxZoom.value, cameraData.zoom))
+      }
+
+      console.log(`Camera loaded for ${projectPath}: zoom=${zoom.value.toFixed(2)}, pos=(${cameraX.value.toFixed(0)}, ${cameraY.value.toFixed(0)})`)
+      return true
+    } catch (err) {
+      console.error('Failed to load camera:', err)
+      return false
+    }
+  }
+
+  /**
+   * Reset camera to default state and clear saved data
+   * @param {string} projectPath - Project root path (optional, to clear saved data)
+   */
+  function resetCamera(projectPath = null) {
+    cameraX.value = 0
+    cameraY.value = 0
+    zoom.value = 1
+
+    if (projectPath) {
+      const storageKey = getCameraStorageKey(projectPath)
+      if (storageKey) {
+        localStorage.removeItem(storageKey)
+      }
+    }
+  }
+
   // Get visible bounds in world coordinates
   const visibleBounds = computed(() => {
     const halfWidth = viewportWidth.value / 2 / zoom.value
@@ -146,6 +232,9 @@ export const useCanvasStore = defineStore('canvas', () => {
     gridToWorld,
     zoomAt,
     pan,
-    updateViewport
+    updateViewport,
+    saveCamera,
+    loadCamera,
+    resetCamera
   }
 })
