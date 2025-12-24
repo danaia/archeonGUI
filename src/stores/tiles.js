@@ -885,21 +885,27 @@ export const useTileStore = defineStore("tiles", () => {
         version: LAYOUT_VERSION,
         savedAt: Date.now(),
         tiles: [],
+        collapsedTiles: [], // Save collapsed state by label:chainIndex
       };
 
       // Save tile positions keyed by label + chainIndex (immutable chain identifier)
       for (const tile of tiles.value.values()) {
+        const tileKey = getTileKey(tile.col, tile.row);
         layoutData.tiles.push({
           label: tile.label,
           chainIndex: tile.chainIndex, // Immutable: which chain this tile belongs to
           col: tile.col,
           row: tile.row,
         });
+        // Save collapsed state by label:chainIndex (not tile key)
+        if (collapsedTiles.value.has(tileKey)) {
+          layoutData.collapsedTiles.push(`${tile.label}:${tile.chainIndex}`);
+        }
       }
 
       localStorage.setItem(storageKey, JSON.stringify(layoutData));
       console.log(
-        `Layout saved for ${projectPath}: ${layoutData.tiles.length} tiles`
+        `Layout saved for ${projectPath}: ${layoutData.tiles.length} tiles, ${collapsedTiles.value.size} collapsed`
       );
       return true;
     } catch (err) {
@@ -968,11 +974,6 @@ export const useTileStore = defineStore("tiles", () => {
         }
       }
 
-      if (tilesToMove.length === 0) {
-        console.log("Layout loaded: no position changes needed");
-        return true;
-      }
-
       // Remove tiles from old positions
       for (const { oldKey } of tilesToMove) {
         tiles.value.delete(oldKey);
@@ -984,6 +985,21 @@ export const useTileStore = defineStore("tiles", () => {
         tile.row = newRow;
         tile.id = newKey;
         tiles.value.set(newKey, tile);
+      }
+
+      // Restore collapsed tiles state (convert from label:chainIndex to tile keys)
+      if (layoutData.collapsedTiles && Array.isArray(layoutData.collapsedTiles)) {
+        const collapsedSet = new Set(layoutData.collapsedTiles);
+        collapsedTiles.value.clear();
+        
+        // Find tiles matching the saved label:chainIndex and add their current keys
+        for (const tile of tiles.value.values()) {
+          const lookupKey = `${tile.label}:${tile.chainIndex}`;
+          if (collapsedSet.has(lookupKey)) {
+            collapsedTiles.value.add(getTileKey(tile.col, tile.row));
+          }
+        }
+        console.log(`Restored ${collapsedTiles.value.size} collapsed tiles`);
       }
 
       console.log(

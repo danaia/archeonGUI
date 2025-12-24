@@ -309,6 +309,10 @@ function handleTileDoubleClick(tile, e) {
   e.stopPropagation();
   // Toggle collapsed state for this tile
   tileStore.toggleCollapsed(tile.col, tile.row);
+  // Save layout to persist collapsed state
+  if (projectStore.projectPath) {
+    tileStore.saveLayout(projectStore.projectPath);
+  }
 }
 
 function handleTileHover(tile) {
