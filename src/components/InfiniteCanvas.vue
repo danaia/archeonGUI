@@ -375,8 +375,16 @@ watch(
 async function copyValidationErrors() {
   const status = uiStore.validationStatus;
 
-  // If valid or validating, just re-run validation
-  if (status.status === "valid" || status.status === "validating") {
+  // If validating, just re-run validation
+  if (status.status === "validating") {
+    if (projectStore.projectPath) {
+      uiStore.runValidation(projectStore.projectPath);
+    }
+    return;
+  }
+
+  // If valid with no warnings, re-run validation
+  if (status.status === "valid" && status.warnings.length === 0) {
     if (projectStore.projectPath) {
       uiStore.runValidation(projectStore.projectPath);
     }
@@ -405,14 +413,43 @@ async function copyValidationErrors() {
   }
 
   if (status.message) {
-    clipboardText += `Message: ${status.message}\n`;
+    clipboardText += `Message: ${status.message}\n\n`;
   }
 
-  clipboardText += `\nPlease help me fix these ARCHEON.arcon validation errors.`;
+  // Add AI-specific mitigation guidance
+  clipboardText += `AI MITIGATION PLAN:\n`;
+  clipboardText += `==================\n\n`;
+  
+  if (status.errors.length > 0) {
+    clipboardText += `For ERRORS:\n`;
+    clipboardText += `1. Analyze each error message carefully\n`;
+    clipboardText += `2. Check the ARCHEON.arcon file for:\n`;
+    clipboardText += `   - Missing or incorrectly formatted chains\n`;
+    clipboardText += `   - Invalid glyph type references\n`;
+    clipboardText += `   - Duplicate definitions\n`;
+    clipboardText += `   - File path mismatches (use V: for views/, CMP: for components/)\n`;
+    clipboardText += `3. Verify file structure matches the expected architecture\n`;
+    clipboardText += `4. Run validation after each fix to confirm resolution\n\n`;
+  }
+
+  if (status.warnings.length > 0) {
+    clipboardText += `For WARNINGS:\n`;
+    clipboardText += `1. Review the warnings to understand potential issues\n`;
+    clipboardText += `2. Determine if they are:\n`;
+    clipboardText += `   - Missing files or components\n`;
+    clipboardText += `   - Unused definitions\n`;
+    clipboardText += `   - Deprecated patterns\n`;
+    clipboardText += `3. Update ARCHEON.arcon to align with actual project structure\n\n`;
+  }
+
+  clipboardText += `Next Steps:\n`;
+  clipboardText += `- Apply suggested fixes to ARCHEON.arcon\n`;
+  clipboardText += `- Re-validate the project\n`;
+  clipboardText += `- If issues persist, provide updated error output`;
 
   try {
     await navigator.clipboard.writeText(clipboardText);
-    uiStore.addToast("Validation errors copied to clipboard", "success", 3000);
+    uiStore.addToast("Validation report with AI mitigation plan copied", "success", 3000);
   } catch (err) {
     uiStore.addToast("Failed to copy to clipboard", "error", 3000);
   }
@@ -1002,9 +1039,14 @@ onUnmounted(() => {
               class="text-ui-textMuted/40 text-[10px] pt-1 border-t border-ui-border/30"
             >
               {{
-                uiStore.validationStatus.status === "valid"
+                uiStore.validationStatus.status === "valid" &&
+                uiStore.validationStatus.warnings.length === 0
                   ? "Click to re-validate"
-                  : "Click to copy errors for AI"
+                  : (uiStore.validationStatus.errors.length > 0 ||
+                      uiStore.validationStatus.warnings.length > 0) &&
+                    uiStore.validationStatus.status !== "validating"
+                  ? "Click to copy messages"
+                  : ""
               }}
             </div>
           </div>
