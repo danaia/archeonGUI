@@ -65,9 +65,17 @@ export function syncChainsToTiles(chains) {
   if (!chains || chains.length === 0) return;
 
   // Filter to only versioned chains (the actual glyph chains with @v prefix)
-  const glyphChains = chains.filter(
-    (c) => c.version && c.glyphs && c.glyphs.length > 0
-  );
+  // Also filter out standalone error chains (ERR: => OUT:) as they're noise
+  // Error handling is already captured inline with -> branch operator
+  const glyphChains = chains.filter((c) => {
+    if (!c.version || !c.glyphs || c.glyphs.length === 0) return false;
+
+    // Skip chains that start with ERR: (error fallback chains)
+    const firstGlyph = c.glyphs[0]?.key || "";
+    if (firstGlyph.startsWith("ERR:")) return false;
+
+    return true;
+  });
 
   // Create tiles for each chain (each chain = 1 row)
   glyphChains.forEach((chain, rowIndex) => {
