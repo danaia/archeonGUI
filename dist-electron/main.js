@@ -1,6 +1,8 @@
 import { ipcMain, dialog, shell, app, BrowserWindow } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
+import { exec } from "child_process";
+import { promisify } from "util";
 import pty from "node-pty";
 import os from "os";
 import chokidar from "chokidar";
@@ -355,6 +357,7 @@ class ArcheonWatcher {
     this.projectPath = null;
   }
 }
+const execAsync = promisify(exec);
 const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow = null;
 let ptyManager = null;
@@ -529,6 +532,67 @@ ipcMain.handle("fs:readPackageJson", async (event, dirPath) => {
     };
   } catch (error) {
     return { success: false, error: error.message };
+  }
+});
+ipcMain.handle("archeon:validate", async (event, projectPath) => {
+  if (!projectPath) {
+    return { success: false, error: "No project path provided" };
+  }
+  try {
+    const { stdout, stderr } = await execAsync("arc validate", {
+      cwd: projectPath,
+      timeout: 3e4
+      // 30 second timeout
+    });
+    const output = stdout + stderr;
+    const isValid = output.includes("Validation passed") || output.includes("✓");
+    const chainsMatch = output.match(/Chains:\s*(\d+)/);
+    const glyphsMatch = output.match(/Glyphs:\s*(\d+)/);
+    const errors = [];
+    const errorMatches = output.matchAll(/•\s*ERR:[^\n]+/g);
+    for (const match of errorMatches) {
+      errors.push(match[0].replace("• ", ""));
+    }
+    const warnings = [];
+    const warnMatches = output.matchAll(/•\s*WARN:[^\n]+/g);
+    for (const match of warnMatches) {
+      warnings.push(match[0].replace("• ", ""));
+    }
+    return {
+      success: true,
+      isValid,
+      chains: chainsMatch ? parseInt(chainsMatch[1]) : 0,
+      glyphs: glyphsMatch ? parseInt(glyphsMatch[1]) : 0,
+      errors,
+      warnings,
+      output
+    };
+  } catch (error) {
+    const output = (error.stdout || "") + (error.stderr || "");
+    const isValid = false;
+    const errors = [];
+    const errorMatches = output.matchAll(/•\s*ERR:[^\n]+/g);
+    for (const match of errorMatches) {
+      errors.push(match[0].replace("• ", ""));
+    }
+    const warnings = [];
+    const warnMatches = output.matchAll(/•\s*WARN:[^\n]+/g);
+    for (const match of warnMatches) {
+      warnings.push(match[0].replace("• ", ""));
+    }
+    if (error.message?.includes("not found") || error.message?.includes("ENOENT")) {
+      return {
+        success: false,
+        error: "arc command not found. Make sure it's installed and in PATH."
+      };
+    }
+    return {
+      success: true,
+      isValid,
+      errors,
+      warnings,
+      output
+    };
   }
 });
 app.whenReady().then(createWindow);

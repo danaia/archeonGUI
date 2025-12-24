@@ -24,6 +24,15 @@ export const useUIStore = defineStore("ui", () => {
   const toasts = ref([]);
   let toastIdCounter = 0;
 
+  // Validation state
+  const validationStatus = ref({
+    status: "idle", // 'idle' | 'validating' | 'valid' | 'invalid' | 'error'
+    lastChecked: null,
+    errors: [],
+    warnings: [],
+    message: null,
+  });
+
   // Check if canvas interactions should be enabled
   const canvasInteractionsEnabled = computed(() => {
     return (
@@ -129,6 +138,71 @@ export const useUIStore = defineStore("ui", () => {
     toasts.value = [];
   }
 
+  /**
+   * Run arc validate on the project
+   * @param {string} projectPath - Path to the project directory
+   */
+  async function runValidation(projectPath) {
+    if (!window.electronAPI?.archeonValidate) {
+      validationStatus.value = {
+        status: "error",
+        lastChecked: Date.now(),
+        errors: [],
+        warnings: [],
+        message: "Validation not available",
+      };
+      return;
+    }
+
+    validationStatus.value.status = "validating";
+
+    try {
+      const result = await window.electronAPI.archeonValidate(projectPath);
+
+      if (!result.success && result.error) {
+        validationStatus.value = {
+          status: "error",
+          lastChecked: Date.now(),
+          errors: [],
+          warnings: [],
+          message: result.error,
+        };
+        return;
+      }
+
+      validationStatus.value = {
+        status: result.isValid ? "valid" : "invalid",
+        lastChecked: Date.now(),
+        errors: result.errors || [],
+        warnings: result.warnings || [],
+        message: result.isValid
+          ? "Validation passed"
+          : `${result.errors?.length || 0} error(s)`,
+      };
+    } catch (err) {
+      validationStatus.value = {
+        status: "error",
+        lastChecked: Date.now(),
+        errors: [],
+        warnings: [],
+        message: err.message,
+      };
+    }
+  }
+
+  /**
+   * Reset validation status
+   */
+  function resetValidation() {
+    validationStatus.value = {
+      status: "idle",
+      lastChecked: null,
+      errors: [],
+      warnings: [],
+      message: null,
+    };
+  }
+
   return {
     // State
     isDrawerOpen,
@@ -140,6 +214,7 @@ export const useUIStore = defineStore("ui", () => {
     minDrawerWidth,
     maxDrawerWidth,
     toasts,
+    validationStatus,
 
     // Computed
     canvasInteractionsEnabled,
@@ -158,5 +233,7 @@ export const useUIStore = defineStore("ui", () => {
     addToast,
     removeToast,
     clearToasts,
+    runValidation,
+    resetValidation,
   };
 });

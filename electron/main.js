@@ -1,8 +1,12 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { PtyManager } from "./pty-manager.js";
 import { ArcheonWatcher } from "./archeon-watcher.js";
+
+const execAsync = promisify(exec);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -230,6 +234,92 @@ ipcMain.handle("fs:readPackageJson", async (event, dirPath) => {
     };
   } catch (error) {
     return { success: false, error: error.message };
+  }
+});
+
+// ============ ARCHEON VALIDATION ============
+
+ipcMain.handle("archeon:validate", async (event, projectPath) => {
+  if (!projectPath) {
+    return { success: false, error: "No project path provided" };
+  }
+
+  try {
+    // Run arc validate in the project directory
+    const { stdout, stderr } = await execAsync("arc validate", {
+      cwd: projectPath,
+      timeout: 30000, // 30 second timeout
+    });
+
+    // Parse the output to determine success/failure
+    const output = stdout + stderr;
+    const isValid =
+      output.includes("Validation passed") || output.includes("✓");
+
+    // Extract chain and glyph counts
+    const chainsMatch = output.match(/Chains:\s*(\d+)/);
+    const glyphsMatch = output.match(/Glyphs:\s*(\d+)/);
+
+    // Extract errors if any
+    const errors = [];
+    const errorMatches = output.matchAll(/•\s*ERR:[^\n]+/g);
+    for (const match of errorMatches) {
+      errors.push(match[0].replace("• ", ""));
+    }
+
+    // Extract warnings if any
+    const warnings = [];
+    const warnMatches = output.matchAll(/•\s*WARN:[^\n]+/g);
+    for (const match of warnMatches) {
+      warnings.push(match[0].replace("• ", ""));
+    }
+
+    return {
+      success: true,
+      isValid,
+      chains: chainsMatch ? parseInt(chainsMatch[1]) : 0,
+      glyphs: glyphsMatch ? parseInt(glyphsMatch[1]) : 0,
+      errors,
+      warnings,
+      output,
+    };
+  } catch (error) {
+    // arc command might return non-zero exit code on validation failure
+    const output = (error.stdout || "") + (error.stderr || "");
+    const isValid = false;
+
+    // Extract errors
+    const errors = [];
+    const errorMatches = output.matchAll(/•\s*ERR:[^\n]+/g);
+    for (const match of errorMatches) {
+      errors.push(match[0].replace("• ", ""));
+    }
+
+    // Extract warnings
+    const warnings = [];
+    const warnMatches = output.matchAll(/•\s*WARN:[^\n]+/g);
+    for (const match of warnMatches) {
+      warnings.push(match[0].replace("• ", ""));
+    }
+
+    // Check if arc command exists
+    if (
+      error.message?.includes("not found") ||
+      error.message?.includes("ENOENT")
+    ) {
+      return {
+        success: false,
+        error: "arc command not found. Make sure it's installed and in PATH.",
+      };
+    }
+
+    return {
+      success: true,
+      isValid,
+      errors,
+      warnings,
+      output,
+    };
   }
 });
 

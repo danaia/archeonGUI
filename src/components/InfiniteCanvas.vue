@@ -1,10 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import {
   useCanvasStore,
   useTileStore,
   useRelationshipStore,
   useUIStore,
+  useProjectStore,
 } from "../stores";
 import { useSelection } from "../composables";
 import { GLYPH_STATES } from "../stores/tiles";
@@ -14,6 +15,7 @@ const canvasStore = useCanvasStore();
 const tileStore = useTileStore();
 const relationshipStore = useRelationshipStore();
 const uiStore = useUIStore();
+const projectStore = useProjectStore();
 
 // Multi-selection and drag-to-move composable
 const {
@@ -350,8 +352,71 @@ onMounted(() => {
     canvasRef.value.addEventListener("wheel", handleWheel, { passive: false });
   }
 
+  // Run initial validation if project is loaded
+  if (projectStore.projectPath) {
+    uiStore.runValidation(projectStore.projectPath);
+  }
+
   // Grid starts empty - tiles loaded when project is opened
 });
+
+// Watch for arconData changes to trigger validation
+watch(
+  () => projectStore.arconData,
+  () => {
+    if (projectStore.projectPath) {
+      uiStore.runValidation(projectStore.projectPath);
+    }
+  },
+  { deep: true }
+);
+
+// Copy validation errors to clipboard for AI assistance
+async function copyValidationErrors() {
+  const status = uiStore.validationStatus;
+
+  // If valid or validating, just re-run validation
+  if (status.status === "valid" || status.status === "validating") {
+    if (projectStore.projectPath) {
+      uiStore.runValidation(projectStore.projectPath);
+    }
+    return;
+  }
+
+  // Build error message for AI
+  let clipboardText = `ARCHEON Validation Failed\n`;
+  clipboardText += `Project: ${projectStore.projectName || "Unknown"}\n`;
+  clipboardText += `Time: ${new Date().toISOString()}\n\n`;
+
+  if (status.errors.length > 0) {
+    clipboardText += `ERRORS (${status.errors.length}):\n`;
+    status.errors.forEach((err, i) => {
+      clipboardText += `  ${i + 1}. ${err}\n`;
+    });
+    clipboardText += "\n";
+  }
+
+  if (status.warnings.length > 0) {
+    clipboardText += `WARNINGS (${status.warnings.length}):\n`;
+    status.warnings.forEach((warn, i) => {
+      clipboardText += `  ${i + 1}. ${warn}\n`;
+    });
+    clipboardText += "\n";
+  }
+
+  if (status.message) {
+    clipboardText += `Message: ${status.message}\n`;
+  }
+
+  clipboardText += `\nPlease help me fix these ARCHEON.arcon validation errors.`;
+
+  try {
+    await navigator.clipboard.writeText(clipboardText);
+    uiStore.addToast("Validation errors copied to clipboard", "success", 3000);
+  } catch (err) {
+    uiStore.addToast("Failed to copy to clipboard", "error", 3000);
+  }
+}
 
 onUnmounted(() => {
   window.removeEventListener("resize", handleResize);
@@ -751,6 +816,200 @@ onUnmounted(() => {
         class="text-indigo-400/80"
         >• {{ tileStore.selectedTileKeys.size }} sel</span
       >
+    </div>
+
+    <!-- Validation Status Indicator -->
+    <div
+      v-if="uiStore.validationStatus.status !== 'idle'"
+      class="absolute top-[50px] right-3"
+    >
+      <Tooltip position="left" maxWidth="400px">
+        <div
+          class="flex items-center gap-2 bg-ui-bg/80 backdrop-blur-sm rounded px-2.5 py-1.5 text-[10px] cursor-pointer transition-all duration-200 hover:bg-ui-bg/95"
+          :class="{
+            'border border-emerald-500/50':
+              uiStore.validationStatus.status === 'valid',
+            'border border-red-500/50':
+              uiStore.validationStatus.status === 'invalid',
+            'border border-amber-500/50':
+              uiStore.validationStatus.status === 'error',
+            'border border-blue-500/50':
+              uiStore.validationStatus.status === 'validating',
+          }"
+          @click="copyValidationErrors"
+        >
+          <!-- Status Icon -->
+          <span
+            v-if="uiStore.validationStatus.status === 'validating'"
+            class="flex items-center"
+          >
+            <svg
+              class="animate-spin h-3 w-3 text-blue-400"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+          </span>
+          <span
+            v-else-if="uiStore.validationStatus.status === 'valid'"
+            class="text-emerald-400 text-sm"
+            >✓</span
+          >
+          <span
+            v-else-if="uiStore.validationStatus.status === 'invalid'"
+            class="text-red-400 text-sm"
+            >✗</span
+          >
+          <span v-else class="text-amber-400 text-sm">⚠</span>
+
+          <!-- Status Text -->
+          <span
+            :class="{
+              'text-emerald-400': uiStore.validationStatus.status === 'valid',
+              'text-red-400': uiStore.validationStatus.status === 'invalid',
+              'text-amber-400': uiStore.validationStatus.status === 'error',
+              'text-blue-400': uiStore.validationStatus.status === 'validating',
+            }"
+          >
+            {{
+              uiStore.validationStatus.status === "validating"
+                ? "Validating..."
+                : uiStore.validationStatus.status === "valid"
+                ? "Valid"
+                : uiStore.validationStatus.status === "invalid"
+                ? `${uiStore.validationStatus.errors.length} error(s)`
+                : "Error"
+            }}
+          </span>
+
+          <!-- Warning count if valid but has warnings -->
+          <span
+            v-if="
+              uiStore.validationStatus.status === 'valid' &&
+              uiStore.validationStatus.warnings.length > 0
+            "
+            class="text-amber-400/70"
+          >
+            ({{ uiStore.validationStatus.warnings.length }} warn)
+          </span>
+        </div>
+
+        <!-- Tooltip Content -->
+        <template #content>
+          <div class="space-y-2 text-xs">
+            <div
+              class="font-semibold flex items-center gap-2"
+              :class="{
+                'text-emerald-400': uiStore.validationStatus.status === 'valid',
+                'text-red-400': uiStore.validationStatus.status === 'invalid',
+                'text-amber-400': uiStore.validationStatus.status === 'error',
+              }"
+            >
+              <span>arc validate</span>
+              <span
+                class="text-ui-textMuted/50 font-normal"
+                v-if="uiStore.validationStatus.lastChecked"
+              >
+                {{
+                  new Date(
+                    uiStore.validationStatus.lastChecked
+                  ).toLocaleTimeString()
+                }}
+              </span>
+            </div>
+
+            <!-- Errors -->
+            <div
+              v-if="uiStore.validationStatus.errors.length > 0"
+              class="space-y-1"
+            >
+              <div
+                v-for="(error, i) in uiStore.validationStatus.errors.slice(
+                  0,
+                  5
+                )"
+                :key="i"
+                class="text-red-300/90 bg-red-500/10 rounded px-2 py-1 font-mono text-[10px] leading-relaxed"
+              >
+                {{ error }}
+              </div>
+              <div
+                v-if="uiStore.validationStatus.errors.length > 5"
+                class="text-red-300/50 text-[10px]"
+              >
+                +{{ uiStore.validationStatus.errors.length - 5 }} more errors
+              </div>
+            </div>
+
+            <!-- Warnings -->
+            <div
+              v-if="uiStore.validationStatus.warnings.length > 0"
+              class="space-y-1"
+            >
+              <div
+                v-for="(warning, i) in uiStore.validationStatus.warnings.slice(
+                  0,
+                  3
+                )"
+                :key="i"
+                class="text-amber-300/90 bg-amber-500/10 rounded px-2 py-1 font-mono text-[10px] leading-relaxed"
+              >
+                {{ warning }}
+              </div>
+              <div
+                v-if="uiStore.validationStatus.warnings.length > 3"
+                class="text-amber-300/50 text-[10px]"
+              >
+                +{{ uiStore.validationStatus.warnings.length - 3 }} more
+                warnings
+              </div>
+            </div>
+
+            <!-- Success message -->
+            <div
+              v-if="
+                uiStore.validationStatus.status === 'valid' &&
+                uiStore.validationStatus.errors.length === 0
+              "
+              class="text-emerald-300/90"
+            >
+              ✓ Architecture is valid
+            </div>
+
+            <!-- Error message -->
+            <div
+              v-if="uiStore.validationStatus.status === 'error'"
+              class="text-amber-300/90"
+            >
+              {{ uiStore.validationStatus.message }}
+            </div>
+
+            <div
+              class="text-ui-textMuted/40 text-[10px] pt-1 border-t border-ui-border/30"
+            >
+              {{
+                uiStore.validationStatus.status === "valid"
+                  ? "Click to re-validate"
+                  : "Click to copy errors for AI"
+              }}
+            </div>
+          </div>
+        </template>
+      </Tooltip>
     </div>
 
     <!-- Legend -->
