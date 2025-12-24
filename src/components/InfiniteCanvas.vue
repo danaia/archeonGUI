@@ -54,6 +54,13 @@ const visibleTiles = computed(() => {
   const result = [];
 
   for (const tile of tileStore.allTiles) {
+    const tileKey = tileStore.getTileKey(tile.col, tile.row);
+
+    // Skip tiles hidden due to collapsed ancestor
+    if (tileStore.isHiddenByCollapse(tileKey, relationshipStore)) {
+      continue;
+    }
+
     // Check if tile is in visible range
     if (
       tile.col < range.minCol ||
@@ -77,9 +84,13 @@ const visibleTiles = computed(() => {
     const chainActive = tileStore.isChainActive(tile.row);
 
     // Check multi-selection
-    const isMultiSelected = tileStore.selectedTileKeys.has(
-      tileStore.getTileKey(tile.col, tile.row)
-    );
+    const isMultiSelected = tileStore.selectedTileKeys.has(tileKey);
+
+    // Collapsed state and descendant count
+    const isCollapsed = tileStore.isCollapsed(tile.col, tile.row);
+    const descendantCount = isCollapsed
+      ? tileStore.getDescendantCount(tileKey, relationshipStore)
+      : 0;
 
     result.push({
       ...tile,
@@ -96,6 +107,9 @@ const visibleTiles = computed(() => {
       isProcessing,
       isDrift,
       chainActive,
+      // Collapse state
+      isCollapsed,
+      descendantCount,
       // Only interactive when complete
       isInteractive: isComplete,
     });
@@ -116,6 +130,11 @@ const visibleBadges = computed(() => {
     const targetTile = tileStore.getTile(targetCoords.col, targetCoords.row);
 
     if (!sourceTile || !targetTile) continue;
+
+    // Skip edges where target is hidden by a collapsed ancestor
+    if (tileStore.isHiddenByCollapse(rel.targetTileKey, relationshipStore)) {
+      continue;
+    }
 
     // Calculate midpoint in world coordinates
     const sourceWorld = canvasStore.gridToWorld(
@@ -278,8 +297,6 @@ function handleTileClick(tile, e) {
 }
 
 function handleTileMouseDown(tile, e) {
-  if (!tile.isInteractive) return;
-
   e.stopPropagation();
 
   // If tile is part of multi-selection, start dragging
@@ -288,9 +305,13 @@ function handleTileMouseDown(tile, e) {
   }
 }
 
+function handleTileDoubleClick(tile, e) {
+  e.stopPropagation();
+  // Toggle collapsed state for this tile
+  tileStore.toggleCollapsed(tile.col, tile.row);
+}
+
 function handleTileHover(tile) {
-  // Only show hover state for complete tiles
-  if (!tile.isInteractive) return;
   tileStore.setHoveredTile(tile.col, tile.row);
 }
 
@@ -637,9 +658,8 @@ onUnmounted(() => {
       <div
         v-for="tile in visibleTiles"
         :key="tile.id"
-        class="absolute transition-all duration-150 ease-out rounded-lg border-2 overflow-hidden"
+        class="absolute transition-all duration-150 ease-out rounded-lg border-2 overflow-hidden pointer-events-auto"
         :class="[
-          tile.isInteractive ? 'pointer-events-auto' : 'pointer-events-none',
           tile.isSelected
             ? 'ring-2 ring-offset-2 ring-offset-canvas-bg shadow-lg'
             : tile.isMultiSelected
@@ -666,18 +686,15 @@ onUnmounted(() => {
             tile.isHovered && !tile.isSelected && !tile.isMultiSelected
               ? 'scale(1.02)'
               : 'scale(1)',
-          // State-driven opacity
-          opacity: tile.isComplete ? 1 : 0.35,
           cursor:
             tile.isMultiSelected && isDraggingTiles
               ? 'grabbing'
               : tile.isMultiSelected
               ? 'grab'
-              : tile.isInteractive
-              ? 'pointer'
-              : 'default',
+              : 'pointer',
         }"
         @click="handleTileClick(tile, $event)"
+        @dblclick="handleTileDoubleClick(tile, $event)"
         @mousedown="handleTileMouseDown(tile, $event)"
         @mouseenter="handleTileHover(tile)"
         @mouseleave="handleTileLeave"
@@ -801,7 +818,10 @@ onUnmounted(() => {
             class="text-ui-text font-medium truncate leading-tight"
             :style="{ fontSize: Math.max(10, 12 * canvasStore.zoom) + 'px' }"
           >
-            {{ tile.name }}
+            {{ tile.name }}<span
+              v-if="tile.isCollapsed && tile.descendantCount > 0"
+              class="text-ui-textMuted ml-1"
+            >({{ tile.descendantCount }})</span>
           </span>
           <span
             class="text-ui-textMuted truncate leading-tight"

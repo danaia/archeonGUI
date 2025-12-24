@@ -41,6 +41,9 @@ export const useTileStore = defineStore("tiles", () => {
   // Currently hovered tile key
   const hoveredTileKey = ref(null);
 
+  // Collapsed tiles (for chain collapse/expand)
+  const collapsedTiles = ref(new Set());
+
   // Undo/Redo history stacks
   const undoStack = ref([]);
   const redoStack = ref([]);
@@ -634,6 +637,74 @@ export const useTileStore = defineStore("tiles", () => {
     return hoveredTileKey.value === getTileKey(col, row);
   }
 
+  // Check if a tile is collapsed
+  function isCollapsed(col, row) {
+    return collapsedTiles.value.has(getTileKey(col, row));
+  }
+
+  // Toggle collapsed state for a tile
+  function toggleCollapsed(col, row) {
+    const key = getTileKey(col, row);
+    if (collapsedTiles.value.has(key)) {
+      collapsedTiles.value.delete(key);
+    } else {
+      collapsedTiles.value.add(key);
+    }
+  }
+
+  /**
+   * Get all descendant tile keys recursively (following outgoing relationships)
+   * @param {string} tileKey - Starting tile key
+   * @param {Object} relationshipStore - Relationship store for edge lookup
+   * @param {Set} visited - Already visited keys (prevents cycles)
+   * @returns {Set} - Set of descendant tile keys
+   */
+  function getDescendants(tileKey, relationshipStore, visited = new Set()) {
+    if (visited.has(tileKey)) return visited;
+    visited.add(tileKey);
+
+    const { outgoing } = relationshipStore.getRelationshipsForTile(tileKey);
+    for (const rel of outgoing) {
+      getDescendants(rel.targetTileKey, relationshipStore, visited);
+    }
+
+    // Remove the starting tile from result (we only want descendants)
+    visited.delete(tileKey);
+    return visited;
+  }
+
+  /**
+   * Get count of descendants for a tile
+   * @param {string} tileKey - Tile key
+   * @param {Object} relationshipStore - Relationship store
+   * @returns {number} - Count of descendants
+   */
+  function getDescendantCount(tileKey, relationshipStore) {
+    return getDescendants(tileKey, relationshipStore).size;
+  }
+
+  /**
+   * Check if a tile is hidden due to an ancestor being collapsed
+   * @param {string} tileKey - Tile key to check
+   * @param {Object} relationshipStore - Relationship store
+   * @returns {boolean} - True if tile should be hidden
+   */
+  function isHiddenByCollapse(tileKey, relationshipStore) {
+    // Walk up the chain via incoming relationships
+    const { incoming } = relationshipStore.getRelationshipsForTile(tileKey);
+    for (const rel of incoming) {
+      // If parent is collapsed, this tile is hidden
+      if (collapsedTiles.value.has(rel.sourceTileKey)) {
+        return true;
+      }
+      // Recursively check if parent is hidden
+      if (isHiddenByCollapse(rel.sourceTileKey, relationshipStore)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Update tile data
   function updateTileData(col, row, data) {
     const tile = getTile(col, row);
@@ -654,6 +725,7 @@ export const useTileStore = defineStore("tiles", () => {
 
   /**
    * Delete all selected tiles and their relationships
+   * Also deletes hidden descendants of collapsed tiles
    * @param {Object} relationshipStore - Relationship store to also delete relationships
    * @returns {number} - Number of tiles deleted
    */
@@ -666,6 +738,25 @@ export const useTileStore = defineStore("tiles", () => {
     }
 
     if (keysToDelete.size === 0) return 0;
+
+    // If a collapsed tile is being deleted, also delete its hidden descendants
+    if (relationshipStore) {
+      const additionalKeys = new Set();
+      for (const key of keysToDelete) {
+        if (collapsedTiles.value.has(key)) {
+          const descendants = getDescendants(key, relationshipStore);
+          for (const descKey of descendants) {
+            additionalKeys.add(descKey);
+          }
+          // Clear collapsed state for this tile
+          collapsedTiles.value.delete(key);
+        }
+      }
+      // Add all descendants to delete set
+      for (const key of additionalKeys) {
+        keysToDelete.add(key);
+      }
+    }
 
     // Delete relationships connected to these tiles
     if (relationshipStore) {
@@ -953,6 +1044,7 @@ export const useTileStore = defineStore("tiles", () => {
     selectedTileKey,
     selectedTileKeys,
     hoveredTileKey,
+    collapsedTiles,
     undoStack,
     redoStack,
 
@@ -980,6 +1072,11 @@ export const useTileStore = defineStore("tiles", () => {
     setHoveredTile,
     isSelected,
     isHovered,
+    isCollapsed,
+    toggleCollapsed,
+    getDescendants,
+    getDescendantCount,
+    isHiddenByCollapse,
     isChainActive,
     updateTileData,
     updateGlyphState,
