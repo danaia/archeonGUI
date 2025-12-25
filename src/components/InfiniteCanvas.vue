@@ -819,10 +819,7 @@ onUnmounted(() => {
             class="text-ui-text font-medium truncate leading-tight"
             :style="{ fontSize: Math.max(10, 12 * canvasStore.zoom) + 'px' }"
           >
-            {{ tile.name }}<span
-              v-if="tile.isCollapsed && tile.descendantCount > 0"
-              class="text-ui-textMuted ml-1"
-            >({{ tile.descendantCount }})</span>
+            {{ tile.name }}
           </span>
           <span
             class="text-ui-textMuted truncate leading-tight"
@@ -831,6 +828,21 @@ onUnmounted(() => {
           >
             {{ tile.qualifier }}
           </span>
+        </div>
+
+        <!-- Collapse indicator badge -->
+        <div
+          v-if="tile.isCollapsed"
+          class="absolute top-0 right-0 flex items-center gap-1 px-1.5 py-0.5 rounded-tr-md rounded-bl-md text-white font-semibold"
+          :style="{
+            backgroundColor: 'rgba(99, 102, 241, 0.9)',
+            fontSize: Math.max(9, 11 * canvasStore.zoom) + 'px',
+            lineHeight: 1,
+          }"
+          title="Collapsed - double-click to expand"
+        >
+          <span>▶</span>
+          <span v-if="tile.descendantCount > 0">{{ tile.descendantCount }}</span>
         </div>
 
         <!-- Layer indicator -->
