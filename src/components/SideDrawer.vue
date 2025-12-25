@@ -2,8 +2,33 @@
 import { computed, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useTileStore, useRelationshipStore, useUIStore } from "../stores";
 import { useProjectStore } from "../stores/project";
+import { useEdgeAnalysis } from "../composables/useEdgeAnalysis";
 import { GLYPH_TYPES, EDGE_TYPES } from "../types/glyphs.js";
 import * as monaco from "monaco-editor";
+import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+import CssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
+import HtmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
+import TsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
+
+// Configure Monaco Environment for web workers
+self.MonacoEnvironment = {
+  getWorker(moduleId, label) {
+    if (label === "json") {
+      return new JsonWorker();
+    }
+    if (label === "css" || label === "scss" || label === "less") {
+      return new CssWorker();
+    }
+    if (label === "html") {
+      return new HtmlWorker();
+    }
+    if (label === "typescript" || label === "javascript") {
+      return new TsWorker();
+    }
+    return new EditorWorker();
+  },
+};
 
 const tileStore = useTileStore();
 const relationshipStore = useRelationshipStore();
@@ -88,209 +113,13 @@ const targetTile = computed(() => {
   return tileStore.getTile(coords.col, coords.row);
 });
 
-// Layer transition analysis for edges
-const layerTransition = computed(() => {
-  if (!sourceTile.value || !targetTile.value) return null;
-  const sourceLayer = sourceTile.value.typeInfo?.layer;
-  const targetLayer = targetTile.value.typeInfo?.layer;
-  
-  if (sourceLayer === targetLayer) {
-    return { type: 'same', description: `Stays within ${sourceLayer} layer` };
-  }
-  
-  // Define layer order for direction analysis
-  const layerOrder = ['meta', 'view', 'frontend', 'backend'];
-  const sourceIdx = layerOrder.indexOf(sourceLayer);
-  const targetIdx = layerOrder.indexOf(targetLayer);
-  
-  if (targetIdx > sourceIdx) {
-    return { 
-      type: 'down', 
-      description: `Descends from ${sourceLayer} → ${targetLayer}`,
-      meaning: 'User intent flows down to implementation'
-    };
-  } else {
-    return { 
-      type: 'up', 
-      description: `Ascends from ${sourceLayer} → ${targetLayer}`,
-      meaning: 'Data/response flows back up to user'
-    };
-  }
-});
-
-// Data flow explanation based on glyph types
-const dataFlowExplanation = computed(() => {
-  if (!sourceTile.value || !targetTile.value || !selectedRelationship.value) return null;
-  
-  const sourceType = sourceTile.value.glyphType;
-  const targetType = targetTile.value.glyphType;
-  const edgeType = selectedRelationship.value.edgeType;
-  
-  const explanations = {
-    // Need flows
-    'NED->TSK': 'User need triggers a specific task',
-    'NED->CMP': 'User need initiates component interaction',
-    'NED->V': 'User need opens a view/page',
-    
-    // Task flows
-    'TSK->CMP': 'Task triggers component action (click, submit, etc.)',
-    'TSK->API': 'Task initiates API call directly',
-    'TSK->FNC': 'Task executes business logic',
-    
-    // Component flows
-    'CMP->STO': 'Component reads/writes state',
-    'CMP->API': 'Component makes HTTP request',
-    'CMP->FNC': 'Component calls business logic',
-    'CMP->OUT': 'Component renders final outcome',
-    
-    // Store flows
-    'STO->CMP': 'State change triggers component re-render',
-    'STO->API': 'State change triggers API sync',
-    
-    // API flows
-    'API->MDL': 'Endpoint queries/mutates database',
-    'API->FNC': 'Endpoint calls server-side logic',
-    'API->STO': 'API response updates client state',
-    'API->OUT': 'API returns success response',
-    'API->ERR': 'API returns error response',
-    
-    // Function flows
-    'FNC->MDL': 'Function accesses data model',
-    'FNC->OUT': 'Function returns success result',
-    'FNC->ERR': 'Function throws/returns error',
-    'FNC->FNC': 'Function calls another function',
-    
-    // Model flows
-    'MDL->OUT': 'Data retrieved successfully',
-    'MDL->ERR': 'Database error occurred',
-    'MDL->STO': 'Model data syncs to client state',
-  };
-  
-  const key = `${sourceType}->${targetType}`;
-  let explanation = explanations[key];
-  
-  // Add edge type context
-  if (edgeType === 'BRANCH') {
-    explanation = explanation ? `[Error Path] ${explanation}` : 'Alternative path on failure';
-  } else if (edgeType === 'REFERENCE') {
-    explanation = explanation ? `[Reactive] ${explanation}` : 'Reactive dependency relationship';
-  }
-  
-  return explanation || `${sourceType} connects to ${targetType}`;
-});
-
-// Pattern recognition
-const patternInfo = computed(() => {
-  if (!sourceTile.value || !targetTile.value) return null;
-  
-  const sourceType = sourceTile.value.glyphType;
-  const targetType = targetTile.value.glyphType;
-  
-  const patterns = {
-    'CMP->API': {
-      name: 'Client-Server Communication',
-      icon: '🌐',
-      description: 'Frontend component making HTTP request to backend',
-      considerations: [
-        'Handle loading states',
-        'Implement error handling',
-        'Consider caching strategy',
-        'Validate request data'
-      ]
-    },
-    'API->MDL': {
-      name: 'Data Access Layer',
-      icon: '💾',
-      description: 'API endpoint querying the database',
-      considerations: [
-        'Validate input parameters',
-        'Handle database errors gracefully',
-        'Consider query optimization',
-        'Implement proper transactions'
-      ]
-    },
-    'CMP->STO': {
-      name: 'State Management',
-      icon: '📦',
-      description: 'Component interacting with global state',
-      considerations: [
-        'Keep state minimal and normalized',
-        'Avoid redundant state updates',
-        'Consider computed/derived state',
-        'Handle async state carefully'
-      ]
-    },
-    'STO->CMP': {
-      name: 'Reactive Binding',
-      icon: '🔄',
-      description: 'State changes triggering component updates',
-      considerations: [
-        'Minimize unnecessary re-renders',
-        'Use selectors for specific state slices',
-        'Consider memoization',
-        'Watch for circular updates'
-      ]
-    },
-    'NED->TSK': {
-      name: 'User Journey Start',
-      icon: '🎯',
-      description: 'User need being translated into actionable task',
-      considerations: [
-        'Clear user intent mapping',
-        'Consider accessibility',
-        'Provide feedback on action',
-        'Handle edge cases'
-      ]
-    },
-    'FNC->ERR': {
-      name: 'Error Handling',
-      icon: '⚠️',
-      description: 'Function reporting error condition',
-      considerations: [
-        'Provide meaningful error messages',
-        'Log errors for debugging',
-        'Consider recovery options',
-        'User-friendly error display'
-      ]
-    },
-    'API->ERR': {
-      name: 'API Error Response',
-      icon: '❌',
-      description: 'Endpoint returning error to client',
-      considerations: [
-        'Use appropriate HTTP status codes',
-        'Include error details in response',
-        'Sanitize error messages for security',
-        'Client-side error handling'
-      ]
-    }
-  };
-  
-  return patterns[`${sourceType}->${targetType}`] || null;
-});
-
-// Get chain context - what comes before and after this edge
-const chainContext = computed(() => {
-  if (!sourceTile.value || !targetTile.value) return null;
-  
-  const sourceKey = selectedRelationship.value.sourceTileKey;
-  const targetKey = selectedRelationship.value.targetTileKey;
-  
-  // Get what flows INTO the source
-  const sourceIncoming = relationshipStore.getRelationshipsForTile(sourceKey).incoming;
-  const predecessors = sourceIncoming.map(rel => {
-    const coords = tileStore.parseTileKey(rel.sourceTileKey);
-    return tileStore.getTile(coords.col, coords.row);
-  }).filter(Boolean);
-  
-  // Get what flows OUT OF the target
-  const targetOutgoing = relationshipStore.getRelationshipsForTile(targetKey).outgoing;
-  const successors = targetOutgoing.map(rel => {
-    const coords = tileStore.parseTileKey(rel.targetTileKey);
-    return tileStore.getTile(coords.col, coords.row);
-  }).filter(Boolean);
-  
-  return { predecessors, successors };
+// Use edge analysis composable for relationship mode
+const { layerTransition, dataFlowExplanation, patternInfo, chainContext } = useEdgeAnalysis({
+  sourceTile,
+  targetTile,
+  selectedRelationship,
+  tileStore,
+  relationshipStore,
 });
 
 // Get relationships for selected tile

@@ -42,4 +42,7 @@ export default defineConfig({
     // Ensure assets are correctly referenced
     assetsDir: "assets",
   },
+  worker: {
+    format: "es",
+  },
 });
