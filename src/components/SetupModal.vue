@@ -19,8 +19,6 @@ const ideOptions = [
     id: "all",
     name: "All IDEs",
     description: "Install Archeon rules for all supported IDEs at once",
-    icon: "🌐",
-    color: "from-purple-500 to-indigo-600",
     files: [
       ".cursorrules",
       ".cursor/README.md",
@@ -38,48 +36,36 @@ const ideOptions = [
     id: "cursor",
     name: "Cursor",
     description: "Optimized AI rules for Cursor AI editor",
-    icon: "⚡",
-    color: "from-emerald-500 to-teal-600",
     files: [".cursorrules", ".cursor/README.md"],
   },
   {
     id: "vscode",
     name: "VS Code + Copilot",
     description: "Copilot instructions + workspace settings for VS Code",
-    icon: "📘",
-    color: "from-blue-500 to-cyan-600",
     files: [".github/copilot-instructions.md", ".vscode/settings.json"],
   },
   {
     id: "windsurf",
     name: "Windsurf",
     description: "AI assistant rules for Codeium's Windsurf",
-    icon: "🌊",
-    color: "from-cyan-500 to-blue-600",
     files: [".windsurfrules", ".windsurf/README.md"],
   },
   {
     id: "cline",
     name: "Cline",
     description: "Claude Dev / Cline assistant configuration",
-    icon: "🤖",
-    color: "from-orange-500 to-red-600",
     files: [".clinerules", ".cline/README.md"],
   },
   {
     id: "aider",
     name: "Aider",
     description: "Aider AI pair programming setup & rules",
-    icon: "🔧",
-    color: "from-yellow-500 to-orange-600",
     files: [".aider.conf.yml", ".aider/README.md"],
   },
   {
     id: "copilot",
     name: "GitHub Copilot",
     description: "GitHub Copilot instructions (works in any editor)",
-    icon: "✨",
-    color: "from-pink-500 to-rose-600",
     files: [".github/copilot-instructions.md"],
   },
 ];
@@ -232,14 +218,14 @@ function skipPromptAndClose() {
                     'relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200',
                     'hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]',
                     selectedIDE === ide.id
-                      ? 'border-indigo-500 bg-indigo-50/30 dark:bg-indigo-900/20 shadow-md'
+                      ? 'border-grey-500 bg-grey-50/30 dark:bg-grey-900/20 shadow-md'
                       : 'border-ui-border bg-ui-bg hover:border-ui-textMuted/50',
                   ]"
                 >
                   <!-- Selection indicator -->
                   <div
                     v-if="selectedIDE === ide.id"
-                    class="absolute top-3 right-3 w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center"
+                    class="absolute top-3 right-3 w-6 h-6 rounded-full bg-grey-500 flex items-center justify-center"
                   >
                     <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -247,19 +233,9 @@ function skipPromptAndClose() {
                   </div>
 
                   <!-- Card content -->
-                  <div class="flex items-start gap-3">
-                    <div
-                      :class="[
-                        'w-10 h-10 rounded-lg flex items-center justify-center text-xl',
-                        'bg-gradient-to-br ' + ide.color,
-                      ]"
-                    >
-                      {{ ide.icon }}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <h3 class="font-semibold text-ui-text text-sm mb-1">{{ ide.name }}</h3>
-                      <p class="text-xs text-ui-textMuted leading-relaxed">{{ ide.description }}</p>
-                    </div>
+                  <div>
+                    <h3 class="font-bold uppercase text-ui-text text-lg mb-1">{{ ide.name }}</h3>
+                    <p class="text-xs text-ui-textMuted leading-relaxed">{{ ide.description }}</p>
                   </div>
 
                   <!-- Files info -->
@@ -302,10 +278,10 @@ function skipPromptAndClose() {
                   @click="applySetup"
                   :disabled="!selectedIDE || isSettingUp"
                   :class="[
-                    'flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-medium transition-all flex items-center justify-center gap-2',
+                    'flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-medium transition-all flex items-center border border-grey-600 justify-center gap-2',
                     selectedIDE && !isSettingUp
-                      ? 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 shadow-md hover:shadow-lg'
-                      : 'bg-gray-400 cursor-not-allowed',
+                      ? 'bg-grey-600 hover:bg-grey-700 active:bg-grey-800 shadow-md hover:shadow-lg '
+                      : 'bg-gray-400 cursor-not-allowed text-black font-bold',
                   ]"
                 >
                   <span v-if="isSettingUp" class="animate-spin">
@@ -361,12 +337,12 @@ function skipPromptAndClose() {
                 
                 <!-- Prompt box with copy button -->
                 <div class="relative group">
-                  <div class="bg-ui-bgLight border border-ui-border rounded-lg p-3 pr-12 font-mono text-sm text-indigo-300">
+                  <div class="bg-ui-bgLight border border-ui-border rounded-lg p-3 pr-12 font-mono text-sm text-grey-300">
                     {{ INIT_PROMPT }}
                   </div>
                   <button
                     @click="copyPromptAndClose"
-                    class="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md bg-grey-600 hover:bg-grey-500 text-white transition-colors"
                     title="Copy to clipboard"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -386,7 +362,7 @@ function skipPromptAndClose() {
                 </button>
                 <button
                   @click="copyPromptAndClose"
-                  class="flex-1 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                  class="flex-1 px-3 py-2 rounded-lg bg-grey-600 hover:bg-grey-500 text-white transition-colors text-sm font-medium flex items-center justify-center gap-2"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
