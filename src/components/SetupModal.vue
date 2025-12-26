@@ -9,6 +9,10 @@ const terminalStore = useTerminalStore();
 const selectedIDE = ref(null);
 const isSettingUp = ref(false);
 const setupError = ref(null);
+const showPromptModal = ref(false);
+const copiedFilesCount = ref(0);
+
+const INIT_PROMPT = "Initialize this project with Archeon";
 
 const ideOptions = [
   {
@@ -21,7 +25,6 @@ const ideOptions = [
       ".cursorrules",
       ".cursor/README.md",
       ".github/copilot-instructions.md",
-      ".github/COPILOT_README.md",
       ".windsurfrules",
       ".windsurf/README.md",
       ".clinerules",
@@ -29,7 +32,6 @@ const ideOptions = [
       ".aider.conf.yml",
       ".aider/README.md",
       ".vscode/settings.json",
-      ".vscode/ARCHEON_README.md",
     ],
   },
   {
@@ -42,11 +44,11 @@ const ideOptions = [
   },
   {
     id: "vscode",
-    name: "Visual Studio Code",
-    description: "Workspace settings & Archeon rules for VS Code",
+    name: "VS Code + Copilot",
+    description: "Copilot instructions + workspace settings for VS Code",
     icon: "📘",
     color: "from-blue-500 to-cyan-600",
-    files: [".vscode/settings.json", ".vscode/ARCHEON_README.md"],
+    files: [".github/copilot-instructions.md", ".vscode/settings.json"],
   },
   {
     id: "windsurf",
@@ -75,10 +77,10 @@ const ideOptions = [
   {
     id: "copilot",
     name: "GitHub Copilot",
-    description: "GitHub Copilot instructions & settings",
+    description: "GitHub Copilot instructions (works in any editor)",
     icon: "✨",
     color: "from-pink-500 to-rose-600",
-    files: [".github/copilot-instructions.md", ".github/COPILOT_README.md"],
+    files: [".github/copilot-instructions.md"],
   },
 ];
 
@@ -106,13 +108,16 @@ async function applySetup() {
     const results = await window.electronAPI.copyRuleTemplates(selectedOption.files, projectPath);
 
     if (results.failed.length === 0) {
-      closeModal();
+      copiedFilesCount.value = results.created.length;
       
       // Show results in terminal
       if (terminalStore.ptyId) {
         const lsCommand = `cd "${projectPath}" && echo "✓ ${selectedOption.name} rules installed (${results.created.length} files)" && ls -la\n`;
         window.electronAPI.ptyWrite(terminalStore.ptyId, lsCommand);
       }
+      
+      // Show the prompt modal instead of closing immediately
+      showPromptModal.value = true;
     } else {
       const failedNames = results.failed.map(f => f.file).join(", ");
       setupError.value = `Failed to create ${results.failed.length} file(s): ${failedNames}`;
@@ -127,7 +132,26 @@ async function applySetup() {
 function closeModal() {
   selectedIDE.value = null;
   setupError.value = null;
+  showPromptModal.value = false;
   uiStore.closeSetupModal();
+}
+
+async function copyPromptAndClose() {
+  try {
+    await navigator.clipboard.writeText(INIT_PROMPT);
+    closeModal();
+    uiStore.addToast(
+      "Prompt copied! Paste into your AI IDE assistant to initialize the project.",
+      "success",
+      8000
+    );
+  } catch (err) {
+    uiStore.addToast("Failed to copy prompt to clipboard", "error");
+  }
+}
+
+function skipPromptAndClose() {
+  closeModal();
 }
 </script>
 
@@ -291,6 +315,83 @@ function closeModal() {
                     </svg>
                   </span>
                   {{ isSettingUp ? 'Setting up...' : selectedIDE ? 'Apply Setup' : 'Select an IDE' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
+        <!-- Nested Prompt Modal -->
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 scale-95"
+          enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95"
+        >
+          <div
+            v-if="showPromptModal"
+            class="absolute inset-0 flex items-center justify-center"
+            @click.stop
+          >
+            <!-- Nested modal backdrop -->
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-lg" @click="skipPromptAndClose" />
+            
+            <!-- Nested modal content -->
+            <div class="relative bg-ui-bg border border-ui-border rounded-lg shadow-2xl max-w-md w-full mx-4 z-10">
+              <!-- Success header -->
+              <div class="px-4 py-3 border-b border-ui-border bg-green-500/10">
+                <div class="flex items-center gap-2">
+                  <span class="text-green-400 text-lg">✓</span>
+                  <h3 class="text-sm font-semibold text-green-400">
+                    Rules installed successfully!
+                  </h3>
+                </div>
+                <p class="text-xs text-ui-textMuted mt-1">
+                  {{ copiedFilesCount }} files copied to your project
+                </p>
+              </div>
+
+              <!-- Prompt section -->
+              <div class="px-4 py-4">
+                <p class="text-sm text-ui-text mb-3">
+                  Copy this prompt and paste it into your AI IDE assistant to initialize the project:
+                </p>
+                
+                <!-- Prompt box with copy button -->
+                <div class="relative group">
+                  <div class="bg-ui-bgLight border border-ui-border rounded-lg p-3 pr-12 font-mono text-sm text-indigo-300">
+                    {{ INIT_PROMPT }}
+                  </div>
+                  <button
+                    @click="copyPromptAndClose"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                    title="Copy to clipboard"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="px-4 py-3 border-t border-ui-border flex gap-2">
+                <button
+                  @click="skipPromptAndClose"
+                  class="flex-1 px-3 py-2 rounded-lg border border-ui-border text-ui-textMuted hover:text-ui-text hover:bg-ui-bgLight transition-colors text-sm"
+                >
+                  Skip
+                </button>
+                <button
+                  @click="copyPromptAndClose"
+                  class="flex-1 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy & Close
                 </button>
               </div>
             </div>
