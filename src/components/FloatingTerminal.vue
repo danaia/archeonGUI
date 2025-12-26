@@ -5,6 +5,7 @@ import { useProjectStore } from "../stores/project";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import SetupModal from "./SetupModal.vue";
 
 const terminalStore = useTerminalStore();
 const uiStore = useUIStore();
@@ -39,6 +40,7 @@ const devServerUrl = ref(null);
 const clientDir = ref(null);
 const devScriptName = ref("dev");
 const isDevServerRunning = ref(false);
+
 
 const isExpanded = computed(() => terminalStore.isExpanded);
 
@@ -723,6 +725,14 @@ onUnmounted(() => {
       <!-- NPM Command Buttons -->
       <div class="flex items-center gap-1 pointer-events-auto">
         <button
+          @click.stop="uiStore.openSetupModal"
+          :disabled="!projectStore.projectPath"
+          class="px-2 py-1 text-xs font-medium rounded bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          title="Setup"
+        >
+          Setup
+        </button>
+        <button
           @click.stop="handleNpmInstall"
           :disabled="isRunningNpmCommand || !projectStore.projectPath"
           class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -796,6 +806,7 @@ onUnmounted(() => {
       class="terminal-content flex-1 min-h-0"
       @click="handleFocus"
     />
+
   </div>
 </template>
 

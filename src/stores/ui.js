@@ -9,8 +9,9 @@ export const useUIStore = defineStore("ui", () => {
   // Focus management
   const focusedElement = ref(null); // 'canvas' | 'terminal' | 'drawer' | null
 
-  // Modal state (for future use)
-  const activeModal = ref(null);
+  // Modal state
+  const activeModal = ref(null); // null | 'setup'
+  const isSetupModalOpen = computed(() => activeModal.value === 'setup');
 
   // Global keyboard state
   const pressedKeys = ref(new Set());
@@ -203,6 +204,15 @@ export const useUIStore = defineStore("ui", () => {
     };
   }
 
+  // Modal handlers
+  function openSetupModal() {
+    activeModal.value = 'setup';
+  }
+
+  function closeSetupModal() {
+    activeModal.value = null;
+  }
+
   return {
     // State
     isDrawerOpen,
@@ -218,6 +228,7 @@ export const useUIStore = defineStore("ui", () => {
 
     // Computed
     canvasInteractionsEnabled,
+    isSetupModalOpen,
 
     // Methods
     openDrawer,
@@ -235,5 +246,7 @@ export const useUIStore = defineStore("ui", () => {
     clearToasts,
     runValidation,
     resetValidation,
+    openSetupModal,
+    closeSetupModal,
   };
 });

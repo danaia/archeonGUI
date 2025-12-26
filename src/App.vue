@@ -5,6 +5,7 @@ import {
   SideDrawer,
   FloatingTerminal,
   ToastContainer,
+  SetupModal,
 } from "./components";
 import {
   useTerminalStore,
@@ -321,6 +322,9 @@ onUnmounted(() => {
 
     <!-- Toast Notifications -->
     <ToastContainer />
+
+    <!-- Setup Modal -->
+    <SetupModal />
   </div>
 </template>
 
