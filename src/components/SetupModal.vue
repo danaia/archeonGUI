@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { useUIStore, useProjectStore, useTerminalStore } from "../stores";
 
 const uiStore = useUIStore();
@@ -14,7 +14,40 @@ const setupError = ref(null);
 const showPromptModal = ref(false);
 const copiedFilesCount = ref(0);
 
+// CLI detection and shapes
+const isCLIInstalled = ref(false);
+const isCheckingCLI = ref(false);
+const selectedShape = ref(null);
+const includeIDERules = ref([]);
+
 const INIT_PROMPT = "Initialize this project with Archeon";
+
+// Available architecture shapes
+const shapeOptions = [
+  {
+    id: "vue3-fastapi",
+    name: "Vue 3 + FastAPI",
+    description: "Vue 3 frontend with FastAPI Python backend, MongoDB, Pinia state management",
+    icon: "🟢",
+    tags: ["Vue 3", "FastAPI", "Python", "MongoDB", "Pinia"],
+  },
+  {
+    id: "react-fastapi",
+    name: "React + FastAPI",
+    description: "React frontend with FastAPI Python backend, MongoDB, Zustand state management",
+    icon: "⚛️",
+    tags: ["React", "FastAPI", "Python", "MongoDB", "Zustand"],
+  },
+];
+
+// IDE rule options for shape installation
+const ideRuleOptions = [
+  { id: "copilot", name: "GitHub Copilot", flag: "--copilot" },
+  { id: "cursor", name: "Cursor", flag: "--cursor" },
+  { id: "windsurf", name: "Windsurf", flag: "--windsurf" },
+  { id: "cline", name: "Cline", flag: "--cline" },
+  { id: "aider", name: "Aider", flag: "--aider" },
+];
 
 // CLI installation - use a single heredoc command to avoid PTY timing issues
 // Install from GitHub since package isn't on PyPI yet
@@ -95,6 +128,25 @@ const ideOptions = [
   },
 ];
 
+// Check if Archeon CLI is installed
+async function checkCLIInstalled() {
+  if (!window.electronAPI) {
+    isCLIInstalled.value = false;
+    return;
+  }
+  
+  isCheckingCLI.value = true;
+  try {
+    // Try to run 'archeon --version' to check if CLI is installed
+    const result = await window.electronAPI.checkCommand('archeon --version');
+    isCLIInstalled.value = result.success;
+  } catch (error) {
+    isCLIInstalled.value = false;
+  } finally {
+    isCheckingCLI.value = false;
+  }
+}
+
 function selectIDE(ideId) {
   selectedIDE.value = ideId === selectedIDE.value ? null : ideId;
 }
@@ -105,6 +157,68 @@ function selectMethod(method) {
   if (method === 'cli') {
     selectedIDE.value = null;
   }
+  if (method === 'shapes') {
+    selectedIDE.value = null;
+    selectedShape.value = null;
+  }
+}
+
+function selectShape(shapeId) {
+  selectedShape.value = shapeId === selectedShape.value ? null : shapeId;
+}
+
+function toggleIDERule(ruleId) {
+  const index = includeIDERules.value.indexOf(ruleId);
+  if (index === -1) {
+    includeIDERules.value.push(ruleId);
+  } else {
+    includeIDERules.value.splice(index, 1);
+  }
+}
+
+async function scaffoldWithShape() {
+  if (!window.electronAPI || !terminalStore.ptyId || !selectedShape.value) {
+    setupError.value = "Terminal not available or no shape selected.";
+    return;
+  }
+
+  const projectPath = projectStore.projectPath || localStorage.getItem("archeon:lastProjectPath");
+  if (!projectPath) {
+    setupError.value = "No project selected. Please open a project first.";
+    return;
+  }
+
+  // Build the command with optional IDE flags
+  let command = `cd "${projectPath}" && archeon init --arch ${selectedShape.value}`;
+  
+  // Add IDE rule flags
+  for (const ruleId of includeIDERules.value) {
+    const rule = ideRuleOptions.find(r => r.id === ruleId);
+    if (rule) {
+      command += ` ${rule.flag}`;
+    }
+  }
+
+  // Close the modal
+  closeModal();
+
+  // Expand terminal if not already
+  if (!terminalStore.isExpanded) {
+    terminalStore.toggle();
+  }
+
+  // Small delay to ensure terminal is ready
+  setTimeout(() => {
+    window.electronAPI.ptyWrite(terminalStore.ptyId, command + "\n");
+  }, 300);
+
+  // Show toast notification
+  const shapeName = shapeOptions.find(s => s.id === selectedShape.value)?.name || selectedShape.value;
+  uiStore.addToast(
+    `Scaffolding project with ${shapeName}...`,
+    "info",
+    5000
+  );
 }
 
 async function installCLI() {
@@ -179,10 +293,26 @@ async function applySetup() {
 function closeModal() {
   selectedIDE.value = null;
   installMethod.value = null;
+  selectedShape.value = null;
+  includeIDERules.value = [];
   setupError.value = null;
   showPromptModal.value = false;
   uiStore.closeSetupModal();
 }
+
+// Check CLI status when modal opens
+watch(() => uiStore.isSetupModalOpen, (isOpen) => {
+  if (isOpen) {
+    checkCLIInstalled();
+  }
+});
+
+// Also check on mount
+onMounted(() => {
+  if (uiStore.isSetupModalOpen) {
+    checkCLIInstalled();
+  }
+});
 
 async function copyPromptAndClose() {
   try {
@@ -233,7 +363,7 @@ function skipPromptAndClose() {
         >
           <div
             v-if="uiStore.isSetupModalOpen"
-            class="relative bg-ui-bg border border-ui-border rounded-lg shadow-2xl max-w-2xl w-full mx-4"
+            class="relative bg-ui-bg border border-ui-border rounded-lg shadow-2xl max-w-3xl w-full mx-4"
             @click.stop
           >
             <!-- Modal Header -->
@@ -269,7 +399,7 @@ function skipPromptAndClose() {
                 </p>
                 
                 <!-- Method Cards -->
-                <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="grid grid-cols-3 gap-3 mb-4">
                   <!-- Rules Only Method -->
                   <div
                     @click="selectMethod('rules')"
@@ -282,11 +412,10 @@ function skipPromptAndClose() {
                     ]"
                   >
                     <div class="flex items-start gap-3">
-                      <div class="text-2xl">📄</div>
                       <div class="flex-1">
                         <h3 class="font-bold text-ui-text text-sm mb-1">Rules Only</h3>
                         <p class="text-xs text-ui-textMuted leading-relaxed">
-                          Add AI assistant rules to your project. Quick setup, no dependencies.
+                          Add AI assistant rules. Quick setup, no dependencies.
                         </p>
                       </div>
                     </div>
@@ -297,6 +426,42 @@ function skipPromptAndClose() {
                     </div>
                   </div>
 
+                  <!-- Shapes Method (only if CLI installed) -->
+                  <div
+                    @click="isCLIInstalled ? selectMethod('shapes') : null"
+                    :class="[
+                      'relative p-4 rounded-xl border-2 transition-all duration-200',
+                      isCLIInstalled 
+                        ? 'cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]' 
+                        : 'opacity-50 cursor-not-allowed',
+                      installMethod === 'shapes'
+                        ? 'border-green-500 bg-green-500/10 shadow-md'
+                        : 'border-ui-border bg-ui-bg hover:border-ui-textMuted/50',
+                    ]"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div class="flex-1">
+                        <h3 class="font-bold text-ui-text text-sm mb-1">Shapes</h3>
+                        <p class="text-xs text-ui-textMuted leading-relaxed">
+                          {{ isCLIInstalled ? 'Full-stack app templates. Vue/React + FastAPI.' : 'Install CLI first to use shapes.' }}
+                        </p>
+                      </div>
+                    </div>
+                    <div v-if="installMethod === 'shapes'" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                      <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <!-- CLI Required Badge -->
+                    <div v-if="!isCLIInstalled" class="absolute -top-2 -right-2 px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-xs text-yellow-400">
+                      CLI Required
+                    </div>
+                    <!-- CLI Installed Badge -->
+                    <div v-else class="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500/20 border border-green-500/30 rounded-full text-xs text-green-400">
+                      CLI Ready
+                    </div>
+                  </div>
+
                   <!-- CLI Method -->
                   <div
                     @click="selectMethod('cli')"
@@ -304,20 +469,19 @@ function skipPromptAndClose() {
                       'relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200',
                       'hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]',
                       installMethod === 'cli'
-                        ? 'border-purple-500 bg-purple-500/10 shadow-md'
+                        ? 'border-gray-600 bg-gray-600/10 shadow-md'
                         : 'border-ui-border bg-ui-bg hover:border-ui-textMuted/50',
                     ]"
                   >
                     <div class="flex items-start gap-3">
-                      <div class="text-2xl">⚡</div>
                       <div class="flex-1">
-                        <h3 class="font-bold text-ui-text text-sm mb-1">CLI (Global)</h3>
+                        <h3 class="font-bold text-ui-text text-sm mb-1">Install CLI</h3>
                         <p class="text-xs text-ui-textMuted leading-relaxed">
-                          Install Archeon CLI globally via pip. Full features, cross-project.
+                          {{ isCLIInstalled ? 'CLI already installed. Reinstall or update.' : 'Install Archeon CLI globally via pip.' }}
                         </p>
                       </div>
                     </div>
-                    <div v-if="installMethod === 'cli'" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center">
+                    <div v-if="installMethod === 'cli'" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center">
                       <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                       </svg>
@@ -325,6 +489,78 @@ function skipPromptAndClose() {
                   </div>
                 </div>
               </div>
+
+              <!-- Shapes Selection Panel -->
+              <Transition
+                enter-active-class="transition-all duration-200 ease-out"
+                enter-from-class="opacity-0 -translate-y-2"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition-all duration-150 ease-in"
+                leave-from-class="opacity-100 translate-y-0"
+                leave-to-class="opacity-0 -translate-y-2"
+              >
+                <div v-if="installMethod === 'shapes'" class="mb-6">
+                  <p class="text-ui-textMuted text-xs mb-3">Select an architecture shape:</p>
+                  
+                  <!-- Shape Cards -->
+                  <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div
+                      v-for="shape in shapeOptions"
+                      :key="shape.id"
+                      @click="selectShape(shape.id)"
+                      :class="[
+                        'relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200',
+                        'hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]',
+                        selectedShape === shape.id
+                          ? 'border-green-500 bg-green-500/10 shadow-md'
+                          : 'border-ui-border bg-ui-bg hover:border-ui-textMuted/50',
+                      ]"
+                    >
+                      <div class="flex items-start gap-3">
+                        <div class="text-2xl">{{ shape.icon }}</div>
+                        <div class="flex-1">
+                          <h3 class="font-bold text-ui-text text-sm mb-1">{{ shape.name }}</h3>
+                          <p class="text-xs text-ui-textMuted leading-relaxed mb-2">{{ shape.description }}</p>
+                          <div class="flex flex-wrap gap-1">
+                            <span
+                              v-for="tag in shape.tags"
+                              :key="tag"
+                              class="px-1.5 py-0.5 bg-ui-bgLight rounded text-xs text-ui-textMuted"
+                            >
+                              {{ tag }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-if="selectedShape === shape.id" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- IDE Rules Selection -->
+                  <div v-if="selectedShape" class="p-3 rounded-lg bg-ui-bgLight border border-ui-border">
+                    <p class="text-xs text-ui-textMuted mb-2">Include AI IDE rules (optional):</p>
+                    <div class="flex flex-wrap gap-2">
+                      <button
+                        v-for="rule in ideRuleOptions"
+                        :key="rule.id"
+                        @click="toggleIDERule(rule.id)"
+                        :class="[
+                          'px-2 py-1 rounded text-xs font-medium transition-colors',
+                          includeIDERules.includes(rule.id)
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : 'bg-ui-bg text-ui-textMuted border border-ui-border hover:border-ui-textMuted/50',
+                        ]"
+                      >
+                        {{ rule.name }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
 
               <!-- CLI Installation Panel -->
               <Transition
@@ -335,11 +571,10 @@ function skipPromptAndClose() {
                 leave-from-class="opacity-100 translate-y-0"
                 leave-to-class="opacity-0 -translate-y-2"
               >
-                <div v-if="installMethod === 'cli'" class="mb-6 p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                <div v-if="installMethod === 'cli'" class="mb-6 p-4 rounded-xl bg-gray-600/10 border border-gray-600/30">
                   <div class="flex items-start gap-3 mb-3">
-                    <div class="text-xl">🔮</div>
                     <div>
-                      <h4 class="font-semibold text-purple-300 text-sm mb-1">Archeon CLI</h4>
+                      <h4 class="font-semibold text-gray-300 text-sm mb-1">Archeon CLI</h4>
                       <p class="text-xs text-ui-textMuted">
                         The CLI provides powerful project scaffolding, glyph management, and sync capabilities.
                       </p>
@@ -348,7 +583,6 @@ function skipPromptAndClose() {
                   
                   <!-- Privacy Notice -->
                   <div class="flex items-start gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20 mb-3">
-                    <span class="text-green-400">🔒</span>
                     <p class="text-xs text-green-300/80">
                       <strong>100% Private:</strong> Archeon is open source. We do NOT collect, store, or transmit any user data. Your code stays on your machine.
                     </p>
@@ -356,11 +590,10 @@ function skipPromptAndClose() {
 
                   <!-- Source Link -->
                   <div class="flex items-center gap-2 text-xs text-ui-textMuted">
-                    <span>📦</span>
                     <a 
                       href="https://github.com/danaia/archeon" 
                       target="_blank" 
-                      class="text-purple-400 hover:text-purple-300 underline"
+                      class="text-gray-400 hover:text-gray-300 underline"
                       @click.stop
                     >
                       github.com/danaia/archeon
@@ -450,16 +683,34 @@ function skipPromptAndClose() {
                   Cancel
                 </button>
                 
+                <!-- Scaffold with Shape Button -->
+                <button
+                  v-if="installMethod === 'shapes'"
+                  @click="scaffoldWithShape"
+                  :disabled="!selectedShape"
+                  :class="[
+                    'flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-medium transition-all flex items-center justify-center gap-2',
+                    selectedShape
+                      ? 'bg-green-600 hover:bg-green-700 active:bg-green-800 shadow-md hover:shadow-lg'
+                      : 'bg-gray-400 cursor-not-allowed text-black font-bold',
+                  ]"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  {{ selectedShape ? 'Scaffold Project' : 'Select a Shape' }}
+                </button>
+                
                 <!-- CLI Install Button -->
                 <button
-                  v-if="installMethod === 'cli'"
+                  v-else-if="installMethod === 'cli'"
                   @click="installCLI"
-                  class="flex-1 px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-sm font-medium transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                  class="flex-1 px-4 py-2.5 rounded-lg bg-gray-600 hover:bg-gray-700 active:bg-gray-800 text-white text-sm font-medium transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  Install via pip
+                  {{ isCLIInstalled ? 'Reinstall CLI' : 'Install via pip' }}
                 </button>
 
                 <!-- Rules Apply Button -->

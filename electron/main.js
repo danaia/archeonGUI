@@ -227,6 +227,16 @@ ipcMain.handle("shell:openExternal", async (event, url) => {
   }
 });
 
+// Check if a command exists/is installed
+ipcMain.handle("shell:checkCommand", async (event, command) => {
+  try {
+    const { stdout } = await execAsync(command, { timeout: 5000 });
+    return { success: true, output: stdout.trim() };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // Find client directory within project (looks for 'client' folder or package.json)
 ipcMain.handle("fs:findClientDir", async (event, projectPath) => {
   const fs = await import("fs/promises");

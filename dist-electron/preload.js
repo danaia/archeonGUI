@@ -45,5 +45,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   copyRuleTemplates: (files, targetDir) => ipcRenderer.invoke("rules:copyTemplates", { files, targetDir }),
   // ============ SHELL ============
   exec: (command, options) => ipcRenderer.invoke("shell:exec", command, options),
-  openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url)
+  openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
+  checkCommand: (command) => ipcRenderer.invoke("shell:checkCommand", command)
 });

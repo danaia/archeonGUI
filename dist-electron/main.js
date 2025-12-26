@@ -566,6 +566,14 @@ ipcMain.handle("shell:openExternal", async (event, url) => {
     return { success: false, error: error.message };
   }
 });
+ipcMain.handle("shell:checkCommand", async (event, command) => {
+  try {
+    const { stdout } = await execAsync(command, { timeout: 5e3 });
+    return { success: true, output: stdout.trim() };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
 ipcMain.handle("fs:findClientDir", async (event, projectPath) => {
   const fs2 = await import("fs/promises");
   const pathModule = await import("path");

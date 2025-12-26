@@ -66,4 +66,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // ============ SHELL ============
   exec: (command, options) => ipcRenderer.invoke("shell:exec", command, options),
   openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
+  checkCommand: (command) => ipcRenderer.invoke("shell:checkCommand", command),
 });
