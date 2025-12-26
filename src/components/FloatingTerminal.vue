@@ -44,6 +44,13 @@ const isDevServerRunning = ref(false);
 
 const isExpanded = computed(() => terminalStore.isExpanded);
 
+// Check if project has files/directories (not empty)
+const hasProjectContent = computed(() => {
+  if (!projectStore.projectPath) return false;
+  // Project is considered to have content if it has arconData or indexData
+  return !!(projectStore.arconData?.chains?.length > 0 || projectStore.indexData);
+});
+
 // Check if we're running in Electron
 const isElectron = computed(() => !!window.electronAPI);
 
@@ -640,6 +647,15 @@ onUnmounted(() => {
           d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
         />
       </svg>
+      <svg
+        class="w-5 h-5 text-terminal-text"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
       <span
         class="text-sm font-medium text-ui-text group-hover:text-terminal-text transition-colors"
       >
@@ -724,21 +740,21 @@ onUnmounted(() => {
         </svg>
         <span class="text-sm font-medium text-ui-text">Terminal</span>
         <span class="text-xs text-ui-textMuted">zsh</span>
+        <button
+          @click.stop="uiStore.openSetupModal"
+          :disabled="!projectStore.projectPath"
+          class="px-2 py-1 text-xs font-medium rounded bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors pointer-events-auto"
+          title="Setup"
+        >
+          Setup
+        </button>
       </div>
 
       <!-- NPM Command Buttons -->
       <div class="flex items-center gap-1 pointer-events-auto">
         <button
-          @click.stop="uiStore.openSetupModal"
-          :disabled="!projectStore.projectPath"
-          class="px-2 py-1 text-xs font-medium rounded bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          title="Setup"
-        >
-          Setup
-        </button>
-        <button
           @click.stop="handleNpmInstall"
-          :disabled="isRunningNpmCommand || !projectStore.projectPath"
+          :disabled="isRunningNpmCommand || !hasProjectContent"
           class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           title="npm install"
         >
@@ -746,7 +762,7 @@ onUnmounted(() => {
         </button>
         <button
           @click.stop="handleNpmRun"
-          :disabled="isRunningNpmCommand || !projectStore.projectPath"
+          :disabled="isRunningNpmCommand || !hasProjectContent"
           class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           :title="`npm run ${devScriptName}`"
         >
