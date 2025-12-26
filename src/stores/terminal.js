@@ -9,13 +9,13 @@ export const useTerminalStore = defineStore("terminal", () => {
   // PTY process ID (for writing to terminal)
   const ptyId = ref(null);
 
-  // Terminal size
-  const width = ref(600);
-  const height = ref(400);
-  const minWidth = ref(400);
-  const minHeight = ref(200);
-  const maxWidth = ref(1200);
-  const maxHeight = ref(800);
+  // Terminal size (30% larger default)
+  const width = ref(780);
+  const height = ref(520);
+  const minWidth = ref(700);
+  const minHeight = ref(250);
+  const maxWidth = ref(1600);
+  const maxHeight = ref(1000);
 
   // Command history
   const history = ref([]);
