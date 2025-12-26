@@ -447,7 +447,6 @@ function createWindow() {
       }
     };
     loadDevServer();
-    mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname$1, "../dist/index.html"));
   }
