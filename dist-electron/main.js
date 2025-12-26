@@ -574,6 +574,15 @@ ipcMain.handle("shell:checkCommand", async (event, command) => {
     return { success: false, error: error.message };
   }
 });
+ipcMain.handle("fs:checkDirExists", async (event, dirPath) => {
+  try {
+    const fs2 = await import("fs/promises");
+    const stat = await fs2.stat(dirPath);
+    return stat.isDirectory();
+  } catch (error) {
+    return false;
+  }
+});
 ipcMain.handle("fs:findClientDir", async (event, projectPath) => {
   const fs2 = await import("fs/promises");
   const pathModule = await import("path");

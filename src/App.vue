@@ -198,6 +198,24 @@ onMounted(async () => {
       if (projectStore.indexData) {
         confirmGlyphsFromIndex(projectStore.indexData);
       }
+
+      // Check if setup modal should be shown
+      // Show if CLI is not installed AND project has no /archeon directory
+      try {
+        const cliResult = await window.electronAPI.checkCommand('archeon --version');
+        const cliInstalled = cliResult.success;
+
+        if (!cliInstalled && projectStore.projectPath) {
+          const archeonDirExists = await window.electronAPI.checkDirExists(
+            `${projectStore.projectPath}/archeon`
+          );
+          if (!archeonDirExists) {
+            uiStore.openSetupModal();
+          }
+        }
+      } catch (err) {
+        // Silently fail - don't block app initialization
+      }
     }
   }
 });

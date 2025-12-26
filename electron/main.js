@@ -237,6 +237,17 @@ ipcMain.handle("shell:checkCommand", async (event, command) => {
   }
 });
 
+// Check if a directory exists
+ipcMain.handle("fs:checkDirExists", async (event, dirPath) => {
+  try {
+    const fs = await import("fs/promises");
+    const stat = await fs.stat(dirPath);
+    return stat.isDirectory();
+  } catch (error) {
+    return false;
+  }
+});
+
 // Find client directory within project (looks for 'client' folder or package.json)
 ipcMain.handle("fs:findClientDir", async (event, projectPath) => {
   const fs = await import("fs/promises");
