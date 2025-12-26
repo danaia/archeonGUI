@@ -52,11 +52,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // ============ FILE SYSTEM ============
   readFile: (filePath) => ipcRenderer.invoke("fs:readFile", filePath),
+  writeFile: (filePath, content) =>
+    ipcRenderer.invoke("fs:writeFile", filePath, content),
   findClientDir: (projectPath) =>
     ipcRenderer.invoke("fs:findClientDir", projectPath),
   readPackageJson: (dirPath) =>
     ipcRenderer.invoke("fs:readPackageJson", dirPath),
 
+  // ============ RULES TEMPLATES ============
+  copyRuleTemplates: (files, targetDir) =>
+    ipcRenderer.invoke("rules:copyTemplates", { files, targetDir }),
+
   // ============ SHELL ============
+  exec: (command, options) => ipcRenderer.invoke("shell:exec", command, options),
   openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
 });

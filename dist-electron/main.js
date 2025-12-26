@@ -502,6 +502,25 @@ ipcMain.handle("archeon:readArcon", async (event, projectPath) => {
 ipcMain.handle("archeon:writeArcon", async (event, projectPath, content) => {
   return archeonWatcher.writeArconFile(projectPath, content);
 });
+ipcMain.handle("rules:copyTemplates", async (event, { files, targetDir }) => {
+  const fs2 = await import("fs/promises");
+  const isDev = process.env.VITE_DEV_SERVER_URL;
+  const templatesPath = isDev ? path.join(__dirname$1, "..", "rules_templates") : path.join(process.resourcesPath, "rules_templates");
+  const results = { created: [], failed: [] };
+  for (const file of files) {
+    const sourcePath = path.join(templatesPath, file);
+    const destPath = path.join(targetDir, file);
+    try {
+      const content = await fs2.readFile(sourcePath, "utf-8");
+      await fs2.mkdir(path.dirname(destPath), { recursive: true });
+      await fs2.writeFile(destPath, content, "utf-8");
+      results.created.push(file);
+    } catch (error) {
+      results.failed.push({ file, error: error.message });
+    }
+  }
+  return results;
+});
 ipcMain.handle("fs:readFile", async (event, filePath) => {
   const fs2 = await import("fs/promises");
   try {
@@ -509,6 +528,34 @@ ipcMain.handle("fs:readFile", async (event, filePath) => {
     return { success: true, content };
   } catch (error) {
     return { success: false, error: error.message };
+  }
+});
+ipcMain.handle("fs:writeFile", async (event, filePath, content) => {
+  const fs2 = await import("fs/promises");
+  const pathModule = await import("path");
+  try {
+    const dir = pathModule.dirname(filePath);
+    await fs2.mkdir(dir, { recursive: true });
+    await fs2.writeFile(filePath, content, "utf-8");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+ipcMain.handle("shell:exec", async (event, command, options = {}) => {
+  try {
+    const { stdout, stderr } = await execAsync(command, {
+      timeout: 6e4,
+      ...options
+    });
+    return { success: true, stdout, stderr };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      stdout: error.stdout || "",
+      stderr: error.stderr || ""
+    };
   }
 });
 ipcMain.handle("shell:openExternal", async (event, url) => {

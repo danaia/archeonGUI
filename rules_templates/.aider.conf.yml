@@ -1,0 +1,27 @@
+# Aider configuration for Archeon project
+
+# Always include these files in context
+read:
+  - archeon/ARCHEON.arcon
+  - archeon/ARCHEON.index.json
+  - archeon/templates/_config/ai-rules.md
+  - .archeonrc
+
+# Don't auto-commit so user can review
+auto-commits: false
+
+# Model instructions
+model-settings-yaml: |
+  extra_params:
+    system: |
+      This project uses Archeon glyph notation.
+      Read archeon/templates/_config/ai-rules.md for the complete rules.
+      
+      Key rules:
+      - Always read archeon/ARCHEON.arcon before generating code
+      - If a feature doesn't exist, write a new chain to ARCHEON.arcon first
+      - EVERY file MUST have @archeon:file headers at top with @glyph, @intent, @chain
+      - EVERY file MUST use @archeon:section / @archeon:endsection markers
+      - ALWAYS update archeon/ARCHEON.index.json when creating files or adding sections
+      - The index MUST stay in sync with the code
+      - Run arc validate after implementation

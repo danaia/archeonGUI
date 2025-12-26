@@ -1,0 +1,13 @@
+{
+  "files.associations": {
+    "*.arcon": "markdown"
+  },
+  "search.include": {
+    "archeon/**": true
+  },
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "text": "Always reference archeon/ARCHEON.arcon for architecture and archeon/templates/_config/ai-rules.md for complete rules. This project uses Archeon glyph notation. Do not invent architecture outside the knowledge graph. EVERY file MUST have @archeon:file headers and @archeon:section markers. ALWAYS update archeon/ARCHEON.index.json when creating files or adding sections."
+    }
+  ]
+}

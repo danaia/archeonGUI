@@ -61,6 +61,13 @@
       "dist-electron/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "rules_templates",
+        "to": "rules_templates",
+        "filter": ["**/*"]
+      }
+    ],
     "directories": {
       "output": "release"
     },

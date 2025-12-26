@@ -6,6 +6,9 @@ export const useTerminalStore = defineStore("terminal", () => {
   const isExpanded = ref(false);
   const isFocused = ref(false);
 
+  // PTY process ID (for writing to terminal)
+  const ptyId = ref(null);
+
   // Terminal size
   const width = ref(600);
   const height = ref(400);
@@ -51,6 +54,16 @@ export const useTerminalStore = defineStore("terminal", () => {
   // Set focus state
   function setFocus(focused) {
     isFocused.value = focused;
+  }
+
+  // Set PTY ID
+  function setPtyId(id) {
+    ptyId.value = id;
+  }
+
+  // Clear PTY ID
+  function clearPtyId() {
+    ptyId.value = null;
   }
 
   // Add command to history
@@ -119,12 +132,15 @@ export const useTerminalStore = defineStore("terminal", () => {
     historyIndex,
     cwd,
     outputBuffer,
+    ptyId,
 
     // Methods
     toggle,
     expand,
     collapse,
     setFocus,
+    setPtyId,
+    clearPtyId,
     addToHistory,
     navigateHistory,
     addOutput,

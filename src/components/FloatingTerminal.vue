@@ -145,6 +145,8 @@ async function spawnPty() {
   try {
     const result = await window.electronAPI.ptySpawn({ cwd, cols, rows });
     ptyId = result.id;
+    // Also store in terminal store so SetupModal can access it
+    terminalStore.setPtyId(ptyId);
 
     // Listen for PTY data
     cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
@@ -162,6 +164,7 @@ async function spawnPty() {
           `\r\n\x1b[33mProcess exited with code ${exitCode}\x1b[0m\r\n`
         );
         ptyId = null;
+        terminalStore.setPtyId(null);
       }
     });
 
@@ -183,6 +186,7 @@ function destroyTerminal() {
   if (ptyId !== null && window.electronAPI) {
     window.electronAPI.ptyKill(ptyId);
     ptyId = null;
+    terminalStore.setPtyId(null);
   }
 
   // Cleanup listeners

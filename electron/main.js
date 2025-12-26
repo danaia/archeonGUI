@@ -138,6 +138,38 @@ ipcMain.handle("archeon:writeArcon", async (event, projectPath, content) => {
   return archeonWatcher.writeArconFile(projectPath, content);
 });
 
+// Copy rule template files to project directory
+ipcMain.handle("rules:copyTemplates", async (event, { files, targetDir }) => {
+  const fs = await import("fs/promises");
+  const isDev = process.env.VITE_DEV_SERVER_URL;
+  const templatesPath = isDev
+    ? path.join(__dirname, "..", "rules_templates")
+    : path.join(process.resourcesPath, "rules_templates");
+
+  const results = { created: [], failed: [] };
+
+  for (const file of files) {
+    const sourcePath = path.join(templatesPath, file);
+    const destPath = path.join(targetDir, file);
+
+    try {
+      // Read template
+      const content = await fs.readFile(sourcePath, "utf-8");
+      
+      // Ensure target directory exists
+      await fs.mkdir(path.dirname(destPath), { recursive: true });
+      
+      // Write to target
+      await fs.writeFile(destPath, content, "utf-8");
+      results.created.push(file);
+    } catch (error) {
+      results.failed.push({ file, error: error.message });
+    }
+  }
+
+  return results;
+});
+
 // File reading for Monaco editor
 ipcMain.handle("fs:readFile", async (event, filePath) => {
   const fs = await import("fs/promises");
@@ -146,6 +178,42 @@ ipcMain.handle("fs:readFile", async (event, filePath) => {
     return { success: true, content };
   } catch (error) {
     return { success: false, error: error.message };
+  }
+});
+
+// File writing
+ipcMain.handle("fs:writeFile", async (event, filePath, content) => {
+  const fs = await import("fs/promises");
+  const pathModule = await import("path");
+
+  try {
+    // Ensure parent directory exists
+    const dir = pathModule.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
+
+    // Write the file
+    await fs.writeFile(filePath, content, "utf-8");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Run shell command and capture output
+ipcMain.handle("shell:exec", async (event, command, options = {}) => {
+  try {
+    const { stdout, stderr } = await execAsync(command, {
+      timeout: 60000,
+      ...options,
+    });
+    return { success: true, stdout, stderr };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      stdout: error.stdout || "",
+      stderr: error.stderr || "",
+    };
   }
 });
 
