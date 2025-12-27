@@ -2,9 +2,11 @@
 import { onMounted, watch } from "vue";
 import { useUIStore, useProjectStore } from "../stores";
 import { useSetup } from "../composables/useSetup";
+import { getPlatformInfo } from "../utils/platform";
 
 const uiStore = useUIStore();
 const projectStore = useProjectStore();
+const platformInfo = getPlatformInfo();
 
 const {
   // State
@@ -707,7 +709,7 @@ onMounted(() => {
               <div class="px-4 py-4">
                 <p class="text-sm text-ui-text mb-3">
                   <strong>pipx</strong> is the recommended way to install Python
-                  CLI tools on Linux. It creates isolated environments
+                  CLI tools on {{ platformInfo.os === 'macos' ? 'macOS' : 'Linux' }}. It creates isolated environments
                   preventing dependency conflicts.
                 </p>
 
@@ -728,7 +730,8 @@ onMounted(() => {
                 </div>
 
                 <p class="text-sm text-ui-text mb-3">
-                  Would you like to install pipx first?
+                  Would you like to install pipx first? 
+                  <span class="text-xs text-ui-textMuted">(via {{ platformInfo.pipxInstallMethod }})</span>
                 </p>
 
                 <div

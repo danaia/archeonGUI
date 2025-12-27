@@ -1,32 +1,28 @@
-import { ipcMain, dialog, shell, app, BrowserWindow } from "electron";
-import path from "path";
-import { fileURLToPath } from "url";
-import { exec } from "child_process";
-import { promisify } from "util";
-import pty from "node-pty";
-import os from "os";
-import fs from "fs";
-import chokidar from "chokidar";
-import fs$1 from "fs/promises";
-class PtyManager {
-  constructor(mainWindow2) {
-    this.mainWindow = mainWindow2;
-    this.terminals = /* @__PURE__ */ new Map();
-    this.nextId = 1;
+import { ipcMain as i, dialog as P, shell as D, app as g, BrowserWindow as R } from "electron";
+import d from "path";
+import { fileURLToPath as F } from "url";
+import { exec as N } from "child_process";
+import { promisify as b } from "util";
+import j from "node-pty";
+import W from "os";
+import x from "fs";
+import k from "chokidar";
+import y from "fs/promises";
+class I {
+  constructor(e) {
+    this.mainWindow = e, this.terminals = /* @__PURE__ */ new Map(), this.nextId = 1;
   }
   /**
    * Determine the shell to use based on OS and availability
    * @returns {string} - Shell executable path
    */
   getShell() {
-    if (process.env.SHELL && fs.existsSync(process.env.SHELL)) {
+    if (process.env.SHELL && x.existsSync(process.env.SHELL))
       return process.env.SHELL;
-    }
-    const platform = os.platform();
-    if (platform === "win32") {
+    const e = W.platform();
+    if (e === "win32")
       return "powershell.exe";
-    }
-    const shellPaths = [
+    const t = [
       "/bin/zsh",
       // Modern macOS and Ubuntu
       "/usr/bin/zsh",
@@ -38,12 +34,10 @@ class PtyManager {
       "/bin/sh"
       // Last resort
     ];
-    for (const shellPath of shellPaths) {
-      if (fs.existsSync(shellPath)) {
-        return shellPath;
-      }
-    }
-    return platform === "darwin" ? "/bin/zsh" : "/bin/bash";
+    for (const s of t)
+      if (x.existsSync(s))
+        return s;
+    return e === "darwin" ? "/bin/zsh" : "/bin/bash";
   }
   /**
    * Spawn a new PTY terminal
@@ -54,52 +48,33 @@ class PtyManager {
    * @param {number} options.rows - Terminal rows
    * @returns {Object} - { id, pid }
    */
-  spawn(options = {}) {
-    const shell2 = this.getShell();
-    const cwd = options.cwd || os.homedir();
-    const cols = options.cols || 80;
-    const rows = options.rows || 24;
-    console.log(`[PTY] Spawning shell: ${shell2}`);
-    console.log(`[PTY] Working directory: ${cwd}`);
-    console.log(`[PTY] Platform: ${os.platform()}`);
-    const env = {
+  spawn(e = {}) {
+    const t = this.getShell(), s = e.cwd || W.homedir(), r = e.cols || 80, n = e.rows || 24;
+    console.log(`[PTY] Spawning shell: ${t}`), console.log(`[PTY] Working directory: ${s}`), console.log(`[PTY] Platform: ${W.platform()}`);
+    const a = {
       ...process.env,
-      ...options.env,
+      ...e.env,
       TERM: "xterm-256color",
       COLORTERM: "truecolor"
-    };
-    const shellArgs = [];
-    if (shell2.includes("zsh") || shell2.includes("bash")) {
-      shellArgs.push("-l");
-    }
-    console.log(`[PTY] Shell args: ${JSON.stringify(shellArgs)}`);
+    }, c = [];
+    (t.includes("zsh") || t.includes("bash")) && c.push("-l"), console.log(`[PTY] Shell args: ${JSON.stringify(c)}`);
     try {
-      const ptyProcess = pty.spawn(shell2, shellArgs, {
+      const l = j.spawn(t, c, {
         name: "xterm-256color",
-        cols,
-        rows,
-        cwd,
-        env,
-        useConpty: false
+        cols: r,
+        rows: n,
+        cwd: s,
+        env: a,
+        useConpty: !1
         // Disable ConPTY on Windows, doesn't affect macOS/Linux
-      });
-      const id = this.nextId++;
-      this.terminals.set(id, ptyProcess);
-      ptyProcess.onData((data) => {
-        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-          this.mainWindow.webContents.send("pty:data", { id, data });
-        }
-      });
-      ptyProcess.onExit(({ exitCode, signal }) => {
-        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-          this.mainWindow.webContents.send("pty:exit", { id, exitCode, signal });
-        }
-        this.terminals.delete(id);
-      });
-      return { id, pid: ptyProcess.pid };
-    } catch (error) {
-      console.error(`Failed to spawn PTY with shell ${shell2}:`, error);
-      throw new Error(`PTY spawn failed: ${error.message}`);
+      }), h = this.nextId++;
+      return this.terminals.set(h, l), l.onData((u) => {
+        this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("pty:data", { id: h, data: u });
+      }), l.onExit(({ exitCode: u, signal: m }) => {
+        this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("pty:exit", { id: h, exitCode: u, signal: m }), this.terminals.delete(h);
+      }), { id: h, pid: l.pid };
+    } catch (l) {
+      throw console.error(`Failed to spawn PTY with shell ${t}:`, l), new Error(`PTY spawn failed: ${l.message}`);
     }
   }
   /**
@@ -107,11 +82,9 @@ class PtyManager {
    * @param {number} id - Terminal ID
    * @param {string} data - Data to write
    */
-  write(id, data) {
-    const ptyProcess = this.terminals.get(id);
-    if (ptyProcess) {
-      ptyProcess.write(data);
-    }
+  write(e, t) {
+    const s = this.terminals.get(e);
+    s && s.write(t);
   }
   /**
    * Resize a PTY
@@ -119,139 +92,104 @@ class PtyManager {
    * @param {number} cols - New columns
    * @param {number} rows - New rows
    */
-  resize(id, cols, rows) {
-    const ptyProcess = this.terminals.get(id);
-    if (ptyProcess && cols > 0 && rows > 0) {
+  resize(e, t, s) {
+    const r = this.terminals.get(e);
+    if (r && t > 0 && s > 0)
       try {
-        ptyProcess.resize(cols, rows);
-      } catch (e) {
-        console.warn("PTY resize failed:", e.message);
+        r.resize(t, s);
+      } catch (n) {
+        console.warn("PTY resize failed:", n.message);
       }
-    }
   }
   /**
    * Kill a PTY
    * @param {number} id - Terminal ID
    */
-  kill(id) {
-    const ptyProcess = this.terminals.get(id);
-    if (ptyProcess) {
-      ptyProcess.kill();
-      this.terminals.delete(id);
-    }
+  kill(e) {
+    const t = this.terminals.get(e);
+    t && (t.kill(), this.terminals.delete(e));
   }
   /**
    * Kill all PTYs
    */
   killAll() {
-    for (const [id, ptyProcess] of this.terminals) {
-      ptyProcess.kill();
-    }
+    for (const [e, t] of this.terminals)
+      t.kill();
     this.terminals.clear();
   }
 }
-class ArcheonWatcher {
-  constructor(mainWindow2) {
-    this.mainWindow = mainWindow2;
-    this.watcher = null;
-    this.projectPath = null;
+class S {
+  constructor(e) {
+    this.mainWindow = e, this.watcher = null, this.projectPath = null;
   }
   /**
    * Start watching an archeon project directory
    * @param {string} projectPath - Root path of the project
    * @returns {Object} - { success, error?, initialData? }
    */
-  async watch(projectPath) {
-    this.stop();
-    this.projectPath = projectPath;
-    const archeonDir = path.join(projectPath, "archeon");
-    let archeonDirExists = false;
+  async watch(e) {
+    this.stop(), this.projectPath = e;
+    const t = d.join(e, "archeon");
+    let s = !1;
     try {
-      await fs$1.access(archeonDir);
-      archeonDirExists = true;
+      await y.access(t), s = !0;
     } catch {
-      archeonDirExists = false;
+      s = !1;
     }
-    let initialIndex = {
-      success: false,
+    let r = {
+      success: !1,
+      error: "archeon/ directory not found"
+    }, n = {
+      success: !1,
       error: "archeon/ directory not found"
     };
-    let initialArcon = {
-      success: false,
-      error: "archeon/ directory not found"
-    };
-    if (archeonDirExists) {
-      initialIndex = await this.readIndexFile(projectPath);
-      initialArcon = await this.readArconFile(projectPath);
-    }
-    this.rootWatcher = chokidar.watch(projectPath, {
-      persistent: true,
-      ignoreInitial: true,
+    return s && (r = await this.readIndexFile(e), n = await this.readArconFile(e)), this.rootWatcher = k.watch(e, {
+      persistent: !0,
+      ignoreInitial: !0,
       depth: 0
       // Only watch immediate children
-    });
-    this.rootWatcher.on("addDir", async (dirPath) => {
-      if (path.basename(dirPath) === "archeon") {
-        await this.startArcheonWatcher(projectPath);
-      }
-    });
-    if (archeonDirExists) {
-      await this.startArcheonWatcher(projectPath);
-    }
-    return {
-      success: true,
-      initialIndex,
-      initialArcon
+    }), this.rootWatcher.on("addDir", async (a) => {
+      d.basename(a) === "archeon" && await this.startArcheonWatcher(e);
+    }), s && await this.startArcheonWatcher(e), {
+      success: !0,
+      initialIndex: r,
+      initialArcon: n
     };
   }
   /**
    * Start watching the archeon directory for file changes
    * @param {string} projectPath - Root path of the project
    */
-  async startArcheonWatcher(projectPath) {
-    const archeonDir = path.join(projectPath, "archeon");
-    if (this.watcher) {
-      await this.watcher.close();
-    }
-    this.watcher = chokidar.watch(archeonDir, {
-      persistent: true,
-      ignoreInitial: false,
+  async startArcheonWatcher(e) {
+    const t = d.join(e, "archeon");
+    this.watcher && await this.watcher.close(), this.watcher = k.watch(t, {
+      persistent: !0,
+      ignoreInitial: !1,
       // Process existing files on start
       awaitWriteFinish: {
         stabilityThreshold: 300,
         pollInterval: 100
       }
-    });
-    this.watcher.on("change", async (filePath) => {
-      const fileName = path.basename(filePath);
-      if (fileName === "ARCHEON.index.json") {
-        const data = await this.readIndexFile(projectPath);
-        if (data.success && this.mainWindow && !this.mainWindow.isDestroyed()) {
-          this.mainWindow.webContents.send("archeon:index-changed", data);
-        }
-      } else if (fileName === "ARCHEON.arcon") {
-        const data = await this.readArconFile(projectPath);
-        if (data.success && this.mainWindow && !this.mainWindow.isDestroyed()) {
-          this.mainWindow.webContents.send("archeon:arcon-changed", data);
-        }
+    }), this.watcher.on("change", async (s) => {
+      const r = d.basename(s);
+      if (r === "ARCHEON.index.json") {
+        const n = await this.readIndexFile(e);
+        n.success && this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("archeon:index-changed", n);
+      } else if (r === "ARCHEON.arcon") {
+        const n = await this.readArconFile(e);
+        n.success && this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("archeon:arcon-changed", n);
       }
-    });
-    this.watcher.on("add", async (filePath) => {
-      const fileName = path.basename(filePath);
-      if (fileName === "ARCHEON.index.json") {
-        const data = await this.readIndexFile(projectPath);
-        if (data.success && this.mainWindow && !this.mainWindow.isDestroyed()) {
-          this.mainWindow.webContents.send("archeon:index-changed", data);
-        }
-      } else if (fileName === "ARCHEON.arcon") {
-        const data = await this.readArconFile(projectPath);
-        if (data.success && this.mainWindow && !this.mainWindow.isDestroyed()) {
-          this.mainWindow.webContents.send("archeon:arcon-changed", data);
-        }
+    }), this.watcher.on("add", async (s) => {
+      const r = d.basename(s);
+      if (r === "ARCHEON.index.json") {
+        const n = await this.readIndexFile(e);
+        n.success && this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("archeon:index-changed", n);
+      } else if (r === "ARCHEON.arcon") {
+        const n = await this.readArconFile(e);
+        n.success && this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("archeon:arcon-changed", n);
       }
-    });
-    this.watcher.on("error", (error) => {
-      console.error("Archeon watcher error:", error);
+    }), this.watcher.on("error", (s) => {
+      console.error("Archeon watcher error:", s);
     });
   }
   /**
@@ -259,17 +197,13 @@ class ArcheonWatcher {
    * @param {string} projectPath - Root path of the project
    * @returns {Object} - { success, data?, error? }
    */
-  async readIndexFile(projectPath) {
-    const indexPath = path.join(projectPath, "archeon", "ARCHEON.index.json");
+  async readIndexFile(e) {
+    const t = d.join(e, "archeon", "ARCHEON.index.json");
     try {
-      const content = await fs$1.readFile(indexPath, "utf-8");
-      const data = JSON.parse(content);
-      return { success: true, data, path: indexPath };
-    } catch (error) {
-      if (error.code === "ENOENT") {
-        return { success: false, error: "ARCHEON.index.json not found" };
-      }
-      return { success: false, error: error.message };
+      const s = await y.readFile(t, "utf-8");
+      return { success: !0, data: JSON.parse(s), path: t };
+    } catch (s) {
+      return s.code === "ENOENT" ? { success: !1, error: "ARCHEON.index.json not found" } : { success: !1, error: s.message };
     }
   }
   /**
@@ -277,17 +211,13 @@ class ArcheonWatcher {
    * @param {string} projectPath - Root path of the project
    * @returns {Object} - { success, content?, chains?, error? }
    */
-  async readArconFile(projectPath) {
-    const arconPath = path.join(projectPath, "archeon", "ARCHEON.arcon");
+  async readArconFile(e) {
+    const t = d.join(e, "archeon", "ARCHEON.arcon");
     try {
-      const content = await fs$1.readFile(arconPath, "utf-8");
-      const chains = this.parseArconChains(content);
-      return { success: true, content, chains, path: arconPath };
-    } catch (error) {
-      if (error.code === "ENOENT") {
-        return { success: false, error: "ARCHEON.arcon not found" };
-      }
-      return { success: false, error: error.message };
+      const s = await y.readFile(t, "utf-8"), r = this.parseArconChains(s);
+      return { success: !0, content: s, chains: r, path: t };
+    } catch (s) {
+      return s.code === "ENOENT" ? { success: !1, error: "ARCHEON.arcon not found" } : { success: !1, error: s.message };
     }
   }
   /**
@@ -295,78 +225,70 @@ class ArcheonWatcher {
    * @param {string} content - Raw .arcon file content
    * @returns {Array} - Array of parsed chains
    */
-  parseArconChains(content) {
-    const chains = [];
-    const lines = content.split("\n");
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const versionMatch = trimmed.match(/^@(\w+)\s+(.+)$/);
-      if (versionMatch) {
-        const version = versionMatch[1];
-        const chainDef = versionMatch[2];
-        const glyphs = this.parseChainGlyphs(chainDef);
-        chains.push({
-          version,
-          raw: trimmed,
-          glyphs
+  parseArconChains(e) {
+    const t = [], s = e.split(`
+`);
+    for (const r of s) {
+      const n = r.trim();
+      if (!n || n.startsWith("#")) continue;
+      const a = n.match(/^@(\w+)\s+(.+)$/);
+      if (a) {
+        const c = a[1], l = a[2], h = this.parseChainGlyphs(l);
+        t.push({
+          version: c,
+          raw: n,
+          glyphs: h
         });
         continue;
       }
-      if (trimmed.includes("::")) {
-        const glyphs = this.parseContainmentGlyphs(trimmed);
-        chains.push({
+      if (n.includes("::")) {
+        const c = this.parseContainmentGlyphs(n);
+        t.push({
           type: "orchestrator",
-          raw: trimmed,
-          glyphs
+          raw: n,
+          glyphs: c
         });
       }
     }
-    return chains;
+    return t;
   }
   /**
    * Parse glyphs from a chain definition (using => edges)
    * @param {string} chainDef - Chain definition string
    * @returns {Array} - Array of glyph objects
    */
-  parseChainGlyphs(chainDef) {
-    const glyphs = [];
-    const parts = chainDef.split(/\s*(?:=>|~>|->)\s*/);
-    for (const part of parts) {
-      const trimmed = part.trim();
-      if (!trimmed) continue;
-      const glyphMatch = trimmed.match(/^(\w+):(.+)$/);
-      if (glyphMatch) {
-        glyphs.push({
-          type: glyphMatch[1],
-          name: glyphMatch[2],
-          key: trimmed
-        });
-      }
+  parseChainGlyphs(e) {
+    const t = [], s = e.split(/\s*(?:=>|~>|->)\s*/);
+    for (const r of s) {
+      const n = r.trim();
+      if (!n) continue;
+      const a = n.match(/^(\w+):(.+)$/);
+      a && t.push({
+        type: a[1],
+        name: a[2],
+        key: n
+      });
     }
-    return glyphs;
+    return t;
   }
   /**
    * Parse glyphs from containment definition (using :: edges)
    * @param {string} def - Definition string
    * @returns {Array} - Array of glyph objects
    */
-  parseContainmentGlyphs(def) {
-    const glyphs = [];
-    const parts = def.split(/\s*::\s*/);
-    for (const part of parts) {
-      const trimmed = part.trim();
-      if (!trimmed) continue;
-      const glyphMatch = trimmed.match(/^(\w+):(.+)$/);
-      if (glyphMatch) {
-        glyphs.push({
-          type: glyphMatch[1],
-          name: glyphMatch[2],
-          key: trimmed
-        });
-      }
+  parseContainmentGlyphs(e) {
+    const t = [], s = e.split(/\s*::\s*/);
+    for (const r of s) {
+      const n = r.trim();
+      if (!n) continue;
+      const a = n.match(/^(\w+):(.+)$/);
+      a && t.push({
+        type: a[1],
+        name: a[2],
+        key: n
+      });
     }
-    return glyphs;
+    return t;
   }
   /**
    * Write content to ARCHEON.arcon file
@@ -374,345 +296,259 @@ class ArcheonWatcher {
    * @param {string} content - Content to write to the file
    * @returns {Object} - { success, error? }
    */
-  async writeArconFile(projectPath, content) {
-    const arconPath = path.join(projectPath, "archeon", "ARCHEON.arcon");
+  async writeArconFile(e, t) {
+    const s = d.join(e, "archeon", "ARCHEON.arcon");
     try {
-      const archeonDir = path.join(projectPath, "archeon");
+      const r = d.join(e, "archeon");
       try {
-        await fs$1.access(archeonDir);
+        await y.access(r);
       } catch {
-        await fs$1.mkdir(archeonDir, { recursive: true });
+        await y.mkdir(r, { recursive: !0 });
       }
-      await fs$1.writeFile(arconPath, content, "utf-8");
-      return { success: true, path: arconPath };
-    } catch (error) {
-      return { success: false, error: error.message };
+      return await y.writeFile(s, t, "utf-8"), { success: !0, path: s };
+    } catch (r) {
+      return { success: !1, error: r.message };
     }
   }
   /**
    * Stop watching
    */
   stop() {
-    if (this.watcher) {
-      this.watcher.close();
-      this.watcher = null;
-    }
-    if (this.rootWatcher) {
-      this.rootWatcher.close();
-      this.rootWatcher = null;
-    }
-    this.projectPath = null;
+    this.watcher && (this.watcher.close(), this.watcher = null), this.rootWatcher && (this.rootWatcher.close(), this.rootWatcher = null), this.projectPath = null;
   }
 }
-const execAsync = promisify(exec);
-const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
-let mainWindow = null;
-let ptyManager = null;
-let archeonWatcher = null;
-function createWindow() {
-  mainWindow = new BrowserWindow({
+const A = b(N), E = d.dirname(F(import.meta.url));
+let f = null, w = null, p = null;
+function C() {
+  if (f = new R({
     width: 1600,
     height: 1e3,
     minWidth: 1024,
     minHeight: 768,
     webPreferences: {
-      preload: path.join(__dirname$1, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false
+      preload: d.join(E, "preload.js"),
+      contextIsolation: !0,
+      nodeIntegration: !1
     },
     backgroundColor: "#0f0f0f",
     titleBarStyle: "hiddenInset",
-    frame: process.platform === "darwin" ? false : true,
-    show: false
+    frame: process.platform !== "darwin",
+    show: !1
     // Don't show until ready
-  });
-  ptyManager = new PtyManager(mainWindow);
-  archeonWatcher = new ArcheonWatcher(mainWindow);
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
-  });
-  if (process.env.VITE_DEV_SERVER_URL) {
-    const loadDevServer = async (retries = 5) => {
+  }), w = new I(f), p = new S(f), f.once("ready-to-show", () => {
+    f.show();
+  }), process.env.VITE_DEV_SERVER_URL) {
+    const o = async (e = 5) => {
       try {
-        await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
-      } catch (err) {
-        if (retries > 0) {
-          console.log(
-            `Waiting for Vite dev server... (${retries} retries left)`
-          );
-          await new Promise((resolve) => setTimeout(resolve, 1e3));
-          return loadDevServer(retries - 1);
-        }
-        console.error("Failed to load Vite dev server:", err);
+        await f.loadURL(process.env.VITE_DEV_SERVER_URL);
+      } catch (t) {
+        if (e > 0)
+          return console.log(
+            `Waiting for Vite dev server... (${e} retries left)`
+          ), await new Promise((s) => setTimeout(s, 1e3)), o(e - 1);
+        console.error("Failed to load Vite dev server:", t);
       }
     };
-    loadDevServer();
-  } else {
-    mainWindow.loadFile(path.join(__dirname$1, "../dist/index.html"));
-  }
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-    if (ptyManager) ptyManager.killAll();
-    if (archeonWatcher) archeonWatcher.stop();
+    o();
+  } else
+    f.loadFile(d.join(E, "../dist/index.html"));
+  f.on("closed", () => {
+    f = null, w && w.killAll(), p && p.stop();
   });
 }
-ipcMain.handle("dialog:openProject", async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+i.handle("dialog:openProject", async () => {
+  const o = await P.showOpenDialog(f, {
     properties: ["openDirectory"],
     title: "Select Archeon Project"
   });
-  if (result.canceled || result.filePaths.length === 0) {
-    return { canceled: true, path: null };
-  }
-  const projectPath = result.filePaths[0];
-  const archeonDir = path.join(projectPath, "archeon");
-  const fs2 = await import("fs/promises");
+  if (o.canceled || o.filePaths.length === 0)
+    return { canceled: !0, path: null };
+  const e = o.filePaths[0], t = d.join(e, "archeon"), s = await import("fs/promises");
   try {
-    await fs2.access(archeonDir);
-    return { canceled: false, path: projectPath, valid: true };
+    return await s.access(t), { canceled: !1, path: e, valid: !0 };
   } catch {
-    return { canceled: false, path: projectPath, valid: false };
+    return { canceled: !1, path: e, valid: !1 };
   }
 });
-ipcMain.handle("pty:spawn", (event, options = {}) => {
-  return ptyManager.spawn(options);
+i.handle("pty:spawn", (o, e = {}) => w.spawn(e));
+i.on("pty:write", (o, { id: e, data: t }) => {
+  w.write(e, t);
 });
-ipcMain.on("pty:write", (event, { id, data }) => {
-  ptyManager.write(id, data);
+i.on("pty:resize", (o, { id: e, cols: t, rows: s }) => {
+  w.resize(e, t, s);
 });
-ipcMain.on("pty:resize", (event, { id, cols, rows }) => {
-  ptyManager.resize(id, cols, rows);
+i.on("pty:kill", (o, { id: e }) => {
+  w.kill(e);
 });
-ipcMain.on("pty:kill", (event, { id }) => {
-  ptyManager.kill(id);
-});
-ipcMain.handle("archeon:watch", (event, projectPath) => {
-  return archeonWatcher.watch(projectPath);
-});
-ipcMain.handle("archeon:stop", () => {
-  archeonWatcher.stop();
-  return true;
-});
-ipcMain.handle("archeon:readIndex", async (event, projectPath) => {
-  return archeonWatcher.readIndexFile(projectPath);
-});
-ipcMain.handle("archeon:readArcon", async (event, projectPath) => {
-  return archeonWatcher.readArconFile(projectPath);
-});
-ipcMain.handle("archeon:writeArcon", async (event, projectPath, content) => {
-  return archeonWatcher.writeArconFile(projectPath, content);
-});
-ipcMain.handle("rules:copyTemplates", async (event, { files, targetDir }) => {
-  const fs2 = await import("fs/promises");
-  const isDev = process.env.VITE_DEV_SERVER_URL;
-  const templatesPath = isDev ? path.join(__dirname$1, "..", "rules_templates") : path.join(process.resourcesPath, "rules_templates");
-  const results = { created: [], failed: [] };
-  for (const file of files) {
-    const sourcePath = path.join(templatesPath, file);
-    const destPath = path.join(targetDir, file);
+i.handle("archeon:watch", (o, e) => p.watch(e));
+i.handle("archeon:stop", () => (p.stop(), !0));
+i.handle("archeon:readIndex", async (o, e) => p.readIndexFile(e));
+i.handle("archeon:readArcon", async (o, e) => p.readArconFile(e));
+i.handle("archeon:writeArcon", async (o, e, t) => p.writeArconFile(e, t));
+i.handle("rules:copyTemplates", async (o, { files: e, targetDir: t }) => {
+  const s = await import("fs/promises"), n = process.env.VITE_DEV_SERVER_URL ? d.join(E, "..", "rules_templates") : d.join(process.resourcesPath, "rules_templates"), a = { created: [], failed: [] };
+  for (const c of e) {
+    const l = d.join(n, c), h = d.join(t, c);
     try {
-      const content = await fs2.readFile(sourcePath, "utf-8");
-      await fs2.mkdir(path.dirname(destPath), { recursive: true });
-      await fs2.writeFile(destPath, content, "utf-8");
-      results.created.push(file);
-    } catch (error) {
-      results.failed.push({ file, error: error.message });
+      const u = await s.readFile(l, "utf-8");
+      await s.mkdir(d.dirname(h), { recursive: !0 }), await s.writeFile(h, u, "utf-8"), a.created.push(c);
+    } catch (u) {
+      a.failed.push({ file: c, error: u.message });
     }
   }
-  return results;
+  return a;
 });
-ipcMain.handle("fs:readFile", async (event, filePath) => {
-  const fs2 = await import("fs/promises");
+i.handle("fs:readFile", async (o, e) => {
+  const t = await import("fs/promises");
   try {
-    const content = await fs2.readFile(filePath, "utf-8");
-    return { success: true, content };
-  } catch (error) {
-    return { success: false, error: error.message };
+    return { success: !0, content: await t.readFile(e, "utf-8") };
+  } catch (s) {
+    return { success: !1, error: s.message };
   }
 });
-ipcMain.handle("fs:writeFile", async (event, filePath, content) => {
-  const fs2 = await import("fs/promises");
-  const pathModule = await import("path");
+i.handle("fs:writeFile", async (o, e, t) => {
+  const s = await import("fs/promises"), r = await import("path");
   try {
-    const dir = pathModule.dirname(filePath);
-    await fs2.mkdir(dir, { recursive: true });
-    await fs2.writeFile(filePath, content, "utf-8");
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
+    const n = r.dirname(e);
+    return await s.mkdir(n, { recursive: !0 }), await s.writeFile(e, t, "utf-8"), { success: !0 };
+  } catch (n) {
+    return { success: !1, error: n.message };
   }
 });
-ipcMain.handle("shell:exec", async (event, command, options = {}) => {
+i.handle("shell:exec", async (o, e, t = {}) => {
   try {
-    const { stdout, stderr } = await execAsync(command, {
+    const { stdout: s, stderr: r } = await A(e, {
       timeout: 6e4,
-      ...options
+      ...t
     });
-    return { success: true, stdout, stderr };
-  } catch (error) {
+    return { success: !0, stdout: s, stderr: r };
+  } catch (s) {
     return {
-      success: false,
-      error: error.message,
-      stdout: error.stdout || "",
-      stderr: error.stderr || ""
+      success: !1,
+      error: s.message,
+      stdout: s.stdout || "",
+      stderr: s.stderr || ""
     };
   }
 });
-ipcMain.handle("shell:openExternal", async (event, url) => {
+i.handle("shell:openExternal", async (o, e) => {
   try {
-    await shell.openExternal(url);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
+    return await D.openExternal(e), { success: !0 };
+  } catch (t) {
+    return { success: !1, error: t.message };
   }
 });
-ipcMain.handle("shell:checkCommand", async (event, command) => {
+i.handle("shell:checkCommand", async (o, e) => {
   try {
-    const { stdout } = await execAsync(command, { timeout: 5e3 });
-    return { success: true, output: stdout.trim() };
-  } catch (error) {
-    return { success: false, error: error.message };
+    const { stdout: t } = await A(e, { timeout: 5e3 });
+    return { success: !0, output: t.trim() };
+  } catch (t) {
+    return { success: !1, error: t.message };
   }
 });
-ipcMain.handle("fs:checkDirExists", async (event, dirPath) => {
+i.handle("fs:checkDirExists", async (o, e) => {
   try {
-    const fs2 = await import("fs/promises");
-    const stat = await fs2.stat(dirPath);
-    return stat.isDirectory();
-  } catch (error) {
-    return false;
+    return (await (await import("fs/promises")).stat(e)).isDirectory();
+  } catch {
+    return !1;
   }
 });
-ipcMain.handle("fs:findClientDir", async (event, projectPath) => {
-  const fs2 = await import("fs/promises");
-  const pathModule = await import("path");
+i.handle("fs:findClientDir", async (o, e) => {
+  const t = await import("fs/promises"), s = await import("path");
   try {
-    const clientDir = pathModule.join(projectPath, "client");
+    const r = s.join(e, "client");
     try {
-      const stat = await fs2.stat(clientDir);
-      if (stat.isDirectory()) {
-        const pkgPath = pathModule.join(clientDir, "package.json");
+      if ((await t.stat(r)).isDirectory()) {
+        const c = s.join(r, "package.json");
         try {
-          await fs2.access(pkgPath);
-          return { success: true, path: clientDir, hasPackageJson: true };
+          return await t.access(c), { success: !0, path: r, hasPackageJson: !0 };
         } catch {
-          return { success: true, path: clientDir, hasPackageJson: false };
+          return { success: !0, path: r, hasPackageJson: !1 };
         }
       }
     } catch {
     }
-    const rootPkgPath = pathModule.join(projectPath, "package.json");
+    const n = s.join(e, "package.json");
     try {
-      await fs2.access(rootPkgPath);
-      return { success: true, path: projectPath, hasPackageJson: true };
+      return await t.access(n), { success: !0, path: e, hasPackageJson: !0 };
     } catch {
       return {
-        success: false,
+        success: !1,
         error: "No package.json found in project or client directory"
       };
     }
-  } catch (error) {
-    return { success: false, error: error.message };
+  } catch (r) {
+    return { success: !1, error: r.message };
   }
 });
-ipcMain.handle("fs:readPackageJson", async (event, dirPath) => {
-  const fs2 = await import("fs/promises");
-  const pathModule = await import("path");
+i.handle("fs:readPackageJson", async (o, e) => {
+  const t = await import("fs/promises"), s = await import("path");
   try {
-    const pkgPath = pathModule.join(dirPath, "package.json");
-    const content = await fs2.readFile(pkgPath, "utf-8");
-    const pkg = JSON.parse(content);
-    const scripts = pkg.scripts || {};
-    let devScript = null;
-    let devCommand = null;
-    const devScriptNames = ["dev", "start", "serve", "develop", "run"];
-    for (const name of devScriptNames) {
-      if (scripts[name]) {
-        devScript = name;
-        devCommand = scripts[name];
+    const r = s.join(e, "package.json"), n = await t.readFile(r, "utf-8"), a = JSON.parse(n), c = a.scripts || {};
+    let l = null, h = null;
+    const u = ["dev", "start", "serve", "develop", "run"];
+    for (const m of u)
+      if (c[m]) {
+        l = m, h = c[m];
         break;
       }
-    }
     return {
-      success: true,
-      name: pkg.name,
-      scripts,
-      devScript,
-      devCommand
+      success: !0,
+      name: a.name,
+      scripts: c,
+      devScript: l,
+      devCommand: h
     };
-  } catch (error) {
-    return { success: false, error: error.message };
+  } catch (r) {
+    return { success: !1, error: r.message };
   }
 });
-ipcMain.handle("archeon:validate", async (event, projectPath) => {
-  if (!projectPath) {
-    return { success: false, error: "No project path provided" };
-  }
+i.handle("archeon:validate", async (o, e) => {
+  if (!e)
+    return { success: !1, error: "No project path provided" };
   try {
-    const { stdout, stderr } = await execAsync("arc validate", {
-      cwd: projectPath,
+    const { stdout: t, stderr: s } = await A("arc validate", {
+      cwd: e,
       timeout: 3e4
       // 30 second timeout
-    });
-    const output = stdout + stderr;
-    const isValid = output.includes("Validation passed") || output.includes("✓");
-    const chainsMatch = output.match(/Chains:\s*(\d+)/);
-    const glyphsMatch = output.match(/Glyphs:\s*(\d+)/);
-    const errors = [];
-    const errorMatches = output.matchAll(/•\s*ERR:[^\n]+/g);
-    for (const match of errorMatches) {
-      errors.push(match[0].replace("• ", ""));
-    }
-    const warnings = [];
-    const warnMatches = output.matchAll(/•\s*WARN:[^\n]+/g);
-    for (const match of warnMatches) {
-      warnings.push(match[0].replace("• ", ""));
-    }
+    }), r = t + s, n = r.includes("Validation passed") || r.includes("✓"), a = r.match(/Chains:\s*(\d+)/), c = r.match(/Glyphs:\s*(\d+)/), l = [], h = r.matchAll(/•\s*ERR:[^\n]+/g);
+    for (const v of h)
+      l.push(v[0].replace("• ", ""));
+    const u = [], m = r.matchAll(/•\s*WARN:[^\n]+/g);
+    for (const v of m)
+      u.push(v[0].replace("• ", ""));
     return {
-      success: true,
-      isValid,
-      chains: chainsMatch ? parseInt(chainsMatch[1]) : 0,
-      glyphs: glyphsMatch ? parseInt(glyphsMatch[1]) : 0,
-      errors,
-      warnings,
-      output
+      success: !0,
+      isValid: n,
+      chains: a ? parseInt(a[1]) : 0,
+      glyphs: c ? parseInt(c[1]) : 0,
+      errors: l,
+      warnings: u,
+      output: r
     };
-  } catch (error) {
-    const output = (error.stdout || "") + (error.stderr || "");
-    const isValid = false;
-    const errors = [];
-    const errorMatches = output.matchAll(/•\s*ERR:[^\n]+/g);
-    for (const match of errorMatches) {
-      errors.push(match[0].replace("• ", ""));
-    }
-    const warnings = [];
-    const warnMatches = output.matchAll(/•\s*WARN:[^\n]+/g);
-    for (const match of warnMatches) {
-      warnings.push(match[0].replace("• ", ""));
-    }
-    if (error.message?.includes("not found") || error.message?.includes("ENOENT")) {
-      return {
-        success: false,
-        error: "arc command not found. Make sure it's installed and in PATH."
-      };
-    }
-    return {
-      success: true,
-      isValid,
-      errors,
-      warnings,
-      output
+  } catch (t) {
+    const s = (t.stdout || "") + (t.stderr || ""), r = !1, n = [], a = s.matchAll(/•\s*ERR:[^\n]+/g);
+    for (const h of a)
+      n.push(h[0].replace("• ", ""));
+    const c = [], l = s.matchAll(/•\s*WARN:[^\n]+/g);
+    for (const h of l)
+      c.push(h[0].replace("• ", ""));
+    return t.message?.includes("not found") || t.message?.includes("ENOENT") ? {
+      success: !1,
+      error: "arc command not found. Make sure it's installed and in PATH."
+    } : {
+      success: !0,
+      isValid: r,
+      errors: n,
+      warnings: c,
+      output: s
     };
   }
 });
-app.whenReady().then(createWindow);
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+g.whenReady().then(C);
+g.on("window-all-closed", () => {
+  process.platform !== "darwin" && g.quit();
 });
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+g.on("activate", () => {
+  R.getAllWindows().length === 0 && C();
 });

@@ -1,4 +1,5 @@
 // Setup modal constants and configuration
+import { isMac, isLinux, getOS } from '../utils/platform';
 
 export const INIT_PROMPT = "Initialize this project with Archeon";
 
@@ -89,18 +90,44 @@ export const ideOptions = [
 ];
 
 // CLI installation commands
-export const PIPX_INSTALL_COMMAND =
+// macOS uses Homebrew, Linux uses apt
+export const PIPX_INSTALL_COMMAND_MAC =
+  "echo && echo '=== Installing pipx + Archeon CLI ===' && echo && echo 'Step 1/2: Installing pipx via Homebrew...' && brew install pipx && pipx ensurepath && echo && echo '[OK] pipx installed!' && echo && echo 'Step 2/2: Installing Archeon CLI via pipx...' && pipx install git+https://github.com/danaia/archeon.git && echo && echo '[OK] Archeon CLI installed! Try: archeon --help' && echo && echo '⚠️  Important: Restart your terminal or run: source ~/.zshrc'";
+
+export const PIPX_INSTALL_COMMAND_LINUX =
   "echo && echo '=== Installing pipx + Archeon CLI ===' && echo && echo 'Step 1/2: Installing pipx via apt...' && sudo apt update && sudo apt install -y pipx && pipx ensurepath && echo && echo '[OK] pipx installed!' && echo && echo 'Step 2/2: Installing Archeon CLI via pipx...' && pipx install git+https://github.com/danaia/archeon.git && echo && echo '[OK] Archeon CLI installed! Try: archeon --help'";
+
+// Get the appropriate pipx install command based on platform
+export function getPipxInstallCommand() {
+  const os = getOS();
+  
+  if (os === 'macos') {
+    return PIPX_INSTALL_COMMAND_MAC;
+  } else if (os === 'linux') {
+    return PIPX_INSTALL_COMMAND_LINUX;
+  } else {
+    // Fallback for unsupported platforms
+    return "echo && echo '❌ Unsupported platform for pipx installation' && echo 'Please install pipx manually'";
+  }
+}
+
+// Legacy export for backwards compatibility
+export const PIPX_INSTALL_COMMAND = PIPX_INSTALL_COMMAND_LINUX;
 
 // Function to generate CLI install command based on platform and pipx availability
 export function getCLIInstallCommand(isPipxInstalled) {
-  const isLinux = navigator.platform.toLowerCase().includes("linux");
-  const usePipx = isLinux && isPipxInstalled;
+  const os = getOS();
+  const usePipx = (os === 'macos' || os === 'linux') && isPipxInstalled;
 
   const tool = usePipx ? "pipx" : "pip";
   const installCmd = usePipx
     ? "pipx install git+https://github.com/danaia/archeon.git"
-    : "pip install git+https://github.com/danaia/archeon.git";
+    : "python3 -m pip install --user git+https://github.com/danaia/archeon.git";
 
-  return `echo && echo '=== ARCHEON CLI - Global Installation ===' && echo && echo 'Installing Archeon CLI using ${tool}...' && ${installCmd} && echo && echo '[OK] Installation complete! Try: archeon --help'`;
+  // For pip install on macOS, also add PATH instructions
+  const pathNote = (!usePipx && os === 'macos')
+    ? " && echo && echo '⚠️  If archeon command not found, add to PATH:' && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' && echo 'Add this to your ~/.zshrc or ~/.bash_profile'"
+    : "";
+
+  return `echo && echo '=== ARCHEON CLI - Global Installation ===' && echo && echo 'Platform: ${os}' && echo 'Installing Archeon CLI using ${tool}...' && ${installCmd}${pathNote} && echo && echo '[OK] Installation complete! Try: archeon --help'`;
 }
