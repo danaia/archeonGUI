@@ -16,9 +16,11 @@ ArcheonGUI is a real-time, interactive grid-based viewer for [Archeon](https://g
 
 - **Node.js** 20.18+ (20.19+ recommended for Vite)
 - **npm** or **yarn**
-- **[Archeon CLI](https://github.com/danaia/archeon)** installed (required for project scaffolding and glyph management)
+- **[Archeon CLI](https://github.com/danaia/archeon)** (recommended for project scaffolding, but optional if using AI IDE rules)
 
-### Installing Archeon CLI
+> **Note:** You don't strictly need the Archeon CLI to use ArcheonGUI. If you're working with AI-powered IDEs like Cursor, Windsurf, or VS Code with Copilot, you can generate and manage your Archeon files directly through IDE chat using the appropriate AI rules. The CLI is primarily helpful for initial project scaffolding and command-line workflows.
+
+### Installing Archeon CLI (Optional)
 
 The [Archeon CLI](https://github.com/danaia/archeon) is a powerful project architect that uses "shapes" (architectural templates) to scaffold consistent project structures. Install it using one of these methods:
 
