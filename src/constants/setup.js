@@ -89,7 +89,8 @@ export const ideOptions = [
 ];
 
 // CLI installation commands
-export const PIPX_INSTALL_COMMAND = "echo && echo '=== Installing pipx + Archeon CLI ===' && echo && echo 'Step 1/2: Installing pipx via apt...' && sudo apt update && sudo apt install -y pipx && pipx ensurepath && echo && echo '[OK] pipx installed!' && echo && echo 'Step 2/2: Installing Archeon CLI via pipx...' && pipx install git+https://github.com/danaia/archeon.git && echo && echo '[OK] Archeon CLI installed! Try: archeon --help'";
+export const PIPX_INSTALL_COMMAND =
+  "echo && echo '=== Installing pipx + Archeon CLI ===' && echo && echo 'Step 1/2: Installing pipx via apt...' && sudo apt update && sudo apt install -y pipx && pipx ensurepath && echo && echo '[OK] pipx installed!' && echo && echo 'Step 2/2: Installing Archeon CLI via pipx...' && pipx install git+https://github.com/danaia/archeon.git && echo && echo '[OK] Archeon CLI installed! Try: archeon --help'";
 
 // Function to generate CLI install command based on platform and pipx availability
 export function getCLIInstallCommand(isPipxInstalled) {
