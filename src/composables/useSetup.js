@@ -1,11 +1,12 @@
 import { ref } from "vue";
 import { useUIStore, useProjectStore, useTerminalStore } from "../stores";
+import { isMac, isLinux, getPlatformInfo } from "../utils/platform";
 import {
   INIT_PROMPT,
   shapeOptions,
   ideRuleOptions,
   ideOptions,
-  PIPX_INSTALL_COMMAND,
+  getPipxInstallCommand,
   getCLIInstallCommand,
 } from "../constants/setup";
 
@@ -54,16 +55,15 @@ export function useSetup() {
     }
   }
 
-  // Check if pipx is installed (for Linux systems)
+  // Check if pipx is installed (for Linux and macOS systems)
   async function checkPipxInstalled() {
     if (!window.electronAPI) {
       isPipxInstalled.value = false;
       return;
     }
 
-    // Only check on Linux
-    const isLinux = navigator.platform.toLowerCase().includes("linux");
-    if (!isLinux) {
+    const platform = getPlatformInfo();
+    if (!platform.supportsPipx) {
       isPipxInstalled.value = false;
       return;
     }
@@ -184,10 +184,8 @@ export function useSetup() {
     }
 
     setTimeout(() => {
-      window.electronAPI.ptyWrite(
-        terminalStore.ptyId,
-        PIPX_INSTALL_COMMAND + "\n"
-      );
+      const command = getPipxInstallCommand();
+      window.electronAPI.ptyWrite(terminalStore.ptyId, command + "\n");
     }, 300);
 
     uiStore.addToast(
@@ -224,9 +222,9 @@ export function useSetup() {
       return;
     }
 
-    // Check if we're on Linux and pipx is not installed
-    const isLinux = navigator.platform.toLowerCase().includes("linux");
-    if (isLinux && !isPipxInstalled.value) {
+    const platform = getPlatformInfo();
+    // Show pipx modal if on a supported platform and pipx is not installed
+    if (platform.supportsPipx && !isPipxInstalled.value) {
       showPipxModal.value = true;
       return;
     }
@@ -244,7 +242,7 @@ export function useSetup() {
 
     const tool = isPipxInstalled.value ? "pipx" : "pip";
     uiStore.addToast(
-      `Installing Archeon CLI globally via ${tool}...`,
+      `Installing Archeon CLI globally via ${tool} on ${platform.os}...`,
       "info",
       5000
     );
