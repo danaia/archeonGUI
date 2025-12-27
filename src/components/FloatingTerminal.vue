@@ -41,14 +41,15 @@ const clientDir = ref(null);
 const devScriptName = ref("dev");
 const isDevServerRunning = ref(false);
 
-
 const isExpanded = computed(() => terminalStore.isExpanded);
 
 // Check if project has files/directories (not empty)
 const hasProjectContent = computed(() => {
   if (!projectStore.projectPath) return false;
   // Project is considered to have content if it has arconData or indexData
-  return !!(projectStore.arconData?.chains?.length > 0 || projectStore.indexData);
+  return !!(
+    projectStore.arconData?.chains?.length > 0 || projectStore.indexData
+  );
 });
 
 // Check if we're running in Electron
@@ -632,7 +633,7 @@ onUnmounted(() => {
     <button
       v-if="!isExpanded"
       @click="handleToggle"
-      class="fixed bottom-4 left-4 z-[100] flex items-center gap-2 px-4 py-3 bg-terminal-bg border border-ui-border rounded-lg shadow-lg hover:bg-ui-bgLight transition-colors group"
+      class="fixed bottom-4 left-4 z-[100] flex items-center px-4 py-3 bg-terminal-bg border border-ui-border rounded-lg shadow-lg hover:bg-ui-bgLight transition-colors group"
     >
       <svg
         class="w-5 h-5 text-terminal-text"
@@ -647,25 +648,6 @@ onUnmounted(() => {
           d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
         />
       </svg>
-      <svg
-        class="w-5 h-5 text-terminal-text"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-        />
-      </svg>
-      <span
-        class="text-sm font-medium text-ui-text group-hover:text-terminal-text transition-colors"
-      >
-        Terminal
-      </span>
-      <kbd
-        class="ml-2 px-1.5 py-0.5 bg-ui-bg rounded text-xs text-ui-textMuted"
-      >
-        `
-      </kbd>
     </button>
   </Transition>
 
@@ -756,9 +738,9 @@ onUnmounted(() => {
           @click.stop="handleNpmInstall"
           :disabled="isRunningNpmCommand || !hasProjectContent"
           class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          title="npm install"
+          title="NPM install"
         >
-          Install
+          NPM Install
         </button>
         <button
           @click.stop="handleNpmRun"
@@ -826,7 +808,6 @@ onUnmounted(() => {
       class="terminal-content flex-1 min-h-0"
       @click="handleFocus"
     />
-
   </div>
 </template>
 
