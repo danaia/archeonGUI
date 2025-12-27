@@ -16,11 +16,11 @@ ArcheonGUI is a real-time, interactive grid-based viewer for [Archeon](https://g
 
 - **Node.js** 20.18+ (20.19+ recommended for Vite)
 - **npm** or **yarn**
-- **Archeon CLI** installed (required for project scaffolding and glyph management)
+- **[Archeon CLI](https://github.com/danaia/archeon)** installed (required for project scaffolding and glyph management)
 
 ### Installing Archeon CLI
 
-The Archeon CLI is a powerful project architect that uses "shapes" (architectural templates) to scaffold consistent project structures. Install it using one of these methods:
+The [Archeon CLI](https://github.com/danaia/archeon) is a powerful project architect that uses "shapes" (architectural templates) to scaffold consistent project structures. Install it using one of these methods:
 
 **Option A: Using pipx (recommended for isolated installation)**
 
@@ -35,7 +35,7 @@ pip install git+https://github.com/danaia/archeon.git
 ```
 
 **Why Archeon CLI is Essential:**
-Archeon CLI provides project "shapes" - pre-configured architectural templates that ensure consistent patterns across your entire codebase. Instead of starting from scratch, you get battle-tested structures like:
+[Archeon CLI](https://github.com/danaia/archeon) provides project "shapes" - pre-configured architectural templates that ensure consistent patterns across your entire codebase. Instead of starting from scratch, you get battle-tested structures like:
 
 - `vue3-fastapi` - Full-stack Vue 3 + FastAPI architecture with standardized folder structure and API patterns
 - `react-node` - React frontend with Node.js backend, configured for seamless team collaboration
