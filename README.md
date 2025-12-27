@@ -16,7 +16,33 @@ ArcheonGUI is a real-time, interactive grid-based viewer for [Archeon](https://g
 
 - **Node.js** 20.18+ (20.19+ recommended for Vite)
 - **npm** or **yarn**
-- An [Archeon](https://github.com/danaia/archeon) project (or create one with `arc init`)
+- **Archeon CLI** installed (required for project scaffolding and glyph management)
+
+### Installing Archeon CLI
+
+The Archeon CLI is a powerful project architect that uses "shapes" (architectural templates) to scaffold consistent project structures. Install it using one of these methods:
+
+**Option A: Using pipx (recommended for isolated installation)**
+
+```bash
+pipx install git+https://github.com/danaia/archeon.git
+```
+
+**Option B: Using pip**
+
+```bash
+pip install git+https://github.com/danaia/archeon.git
+```
+
+**Why Archeon CLI is Essential:**
+Archeon CLI provides project "shapes" - pre-configured architectural templates that ensure consistent patterns across your entire codebase. Instead of starting from scratch, you get battle-tested structures like:
+
+- `vue3-fastapi` - Full-stack Vue 3 + FastAPI architecture with standardized folder structure and API patterns
+- `react-node` - React frontend with Node.js backend, configured for seamless team collaboration
+- **Custom team shapes** - Define your organization's coding standards, file naming conventions, and architectural patterns in a single JSON configuration file that can be:
+  - Version controlled and shared across teams
+
+These shapes prevent architectural drift, reduce decision fatigue, and give AI assistants clear constraints to follow. Most importantly, they ensure every team member starts with the same proven architecture, making code reviews faster and onboarding smoother. The CLI generates both your project structure and the knowledge graph (`.arcon` files) that ArcheonGUI visualizes.
 
 ## Installation
 
@@ -54,26 +80,39 @@ Click **"Open Project"** (or press `⌘O` / `Ctrl+O`) and select a folder contai
 
 Glyphs from your `ARCHEON.index.json` will appear as tiles on the grid:
 
-- **Each chain** gets its own row
+- **Each chain** gets its own row (e.g., `@v1`, `@v2`)
 - **Glyphs** are laid out left-to-right in chain order
 - **Relationships** are shown as connecting lines between tiles
+- **Shape consistency** - All tiles follow the architectural patterns defined by your project's shape
 
-### 3. Use the Terminal
+### 3. Use the Terminal for Archeon Commands
 
-Press **backtick** (`` ` ``) to open the embedded terminal:
+Press **backtick** (`` ` ``) to open the embedded terminal and leverage Archeon's powerful project scaffolding:
 
 ```bash
 # Navigate to your project
 cd ~/projects/my-app
 
-# Initialize archeon (if needed)
-arc init --frontend vue3
+# Initialize with architectural shape (creates consistent structure)
+arc init --arch vue3-fastapi
 
-# Parse a new chain
+# Or initialize with specific IDE integration
+arc init --arch vue3-fastapi --cursor  # Adds Cursor AI rules
+arc init --arch vue3-fastapi --copilot # Adds GitHub Copilot rules
+
+# Parse new chains using glyph notation
 arc parse "@v1 NED:feature => CMP:Feature => API:POST/feature => OUT:success"
 
-# The grid updates automatically!
+# Generate code from your architectural graph
+arc gen
+
+# Set up AI assistant rules for your IDE
+arc ai-setup
+
+# The grid updates automatically as you build!
 ```
+
+**Pro Tip:** The `arc init` command uses "shapes" - architectural templates that scaffold your entire project with consistent patterns. This ensures your ArcheonGUI visualization reflects a well-structured, predictable architecture that AI assistants can understand and extend reliably.
 
 ### 4. Inspect Glyphs
 
@@ -140,12 +179,19 @@ For distribution packages (`.dmg`, `.exe`, `.AppImage`), configure `electron-bui
 
 ### "ARCHEON.index.json not found"
 
-Your project needs an `archeon/` directory with archeon files. Create one:
+Your project needs an `archeon/` directory with archeon files. Create one using the CLI's shape system:
 
 ```bash
 cd your-project
-arc init --frontend vue3
+# Use a shape for consistent architecture
+arc init --arch vue3-fastapi
+# Or for React projects:
+# arc init --arch react-node
+
+# Parse your first chain
 arc parse "@v1 NED:example => CMP:Example => OUT:display"
+# Generate the code
+arc gen
 ```
 
 ### Terminal not working
