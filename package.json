@@ -6,11 +6,9 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && electron-builder",
-    "preview": "vite preview",
-    "electron:dev": "vite",
-    "electron:build": "vite build && electron-builder",
-    "rebuild": "electron-rebuild -f -w node-pty"
+    "build": "CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder --arm64 --mac --dir",
+    "build:dmg": "vite build && electron-builder --arm64 --mac dmg",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
@@ -39,19 +37,14 @@
     "productName": "ArcheonGUI",
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "hardenedRuntime": true,
+      "target": {
+        "target": "dir",
+        "arch": "arm64"
+      },
+      "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "notarize": false,
-      "entitlements": "entitlements.mac.plist",
-      "entitlementsInherit": "entitlements.mac.plist",
-      "extendInfo": {
-        "NSAppleEventsUsageDescription": "ArcheonGUI needs to access system events",
-        "NSSystemAdministrationUsageDescription": "ArcheonGUI needs to run shell commands"
-      }
+      "type": "development",
+      "identity": null
     },
     "linux": {
       "target": [
@@ -71,27 +64,20 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*",
-      "package.json",
-      "node_modules/node-pty/**/*",
-      "node_modules/chokidar/**/*"
+      "dist-electron/**/*"
     ],
     "extraResources": [
       {
         "from": "rules_templates",
-        "to": "rules_templates",
-        "filter": ["**/*"]
+        "to": "rules_templates"
       }
     ],
     "directories": {
       "output": "release"
     },
-    "afterPack": "./scripts/afterPack.cjs",
-    "asarUnpack": [
-      "node_modules/node-pty/**/*",
-      "node_modules/chokidar/**/*"
-    ],
+    "asarUnpack": ["node_modules/node-pty/**/*"],
     "nodeGypRebuild": false,
-    "npmRebuild": false
+    "npmRebuild": false,
+    "buildDependenciesFromSource": false
   }
 }

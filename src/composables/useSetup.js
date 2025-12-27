@@ -3,7 +3,7 @@ import { useUIStore, useProjectStore, useTerminalStore } from "../stores";
 import { isMac, isLinux, getPlatformInfo } from "../utils/platform";
 import {
   INIT_PROMPT,
-  shapeOptions,
+  shapeOptions as fallbackShapeOptions,
   ideRuleOptions,
   ideOptions,
   getPipxInstallCommand,
@@ -36,6 +36,12 @@ export function useSetup() {
   const isCheckingPipx = ref(false);
   const showPipxModal = ref(false);
   const isInstallingPipx = ref(false);
+  
+  // Dynamic shapes from Archeon installation
+  const shapeOptions = ref([]);
+  const isLoadingShapes = ref(false);
+  const shapesError = ref(null);
+  const shapesPath = ref(null);
 
   // Check if Archeon CLI is installed
   async function checkCLIInstalled() {
@@ -46,12 +52,31 @@ export function useSetup() {
 
     isCheckingCLI.value = true;
     try {
-      const result = await window.electronAPI.checkCommand("archeon --version");
+      // Use direct path to archeon binary installed by pipx
+      const result = await window.electronAPI.checkCommand("~/.local/bin/archeon --version");
       isCLIInstalled.value = result.success;
     } catch (error) {
       isCLIInstalled.value = false;
     } finally {
       isCheckingCLI.value = false;
+    }
+  }
+
+  // Refresh CLI check (called by user action)
+  async function refreshCLICheck() {
+    await checkCLIInstalled();
+    if (isCLIInstalled.value) {
+      uiStore.addToast(
+        "✓ Archeon CLI ready! Shapes unlocked.",
+        "success",
+        3000
+      );
+    } else {
+      uiStore.addToast(
+        "CLI not found. Try: source ~/.zshrc",
+        "warning",
+        4000
+      );
     }
   }
 
@@ -163,9 +188,9 @@ export function useSetup() {
     }, 300);
 
     const shapeName =
-      shapeOptions.find((s) => s.id === selectedShape.value)?.name ||
+      shapeOptions.value.find((s) => s.id === selectedShape.value)?.name ||
       selectedShape.value;
-    uiStore.addToast(`Scaffolding project with ${shapeName}...`, "info", 5000);
+    uiStore.addToast(`Scaffolding project...`, "info", 7000);
   }
 
   // Install pipx and continue
@@ -189,9 +214,9 @@ export function useSetup() {
     }, 300);
 
     uiStore.addToast(
-      "Installing pipx and Archeon CLI... This may take a moment.",
+      "📦 Installing pipx + Archeon CLI in terminal... Click Refresh when done, then reopen Setup.",
       "info",
-      10000
+      12000
     );
 
     isInstallingPipx.value = false;
@@ -211,7 +236,11 @@ export function useSetup() {
     }, 300);
 
     closeModal();
-    uiStore.addToast("Installing Archeon CLI via pip...", "info", 5000);
+    uiStore.addToast(
+      "📦 Installing Archeon CLI via pip in terminal... Click Refresh when done, then reopen Setup.",
+      "info",
+      12000
+    );
   }
 
   // Install the Archeon CLI
@@ -242,9 +271,9 @@ export function useSetup() {
 
     const tool = isPipxInstalled.value ? "pipx" : "pip";
     uiStore.addToast(
-      `Installing Archeon CLI globally via ${tool} on ${platform.os}...`,
+      `📦 Installing Archeon CLI via ${tool} in terminal... Click Refresh when done, then reopen Setup.`,
       "info",
-      5000
+      12000
     );
   }
 
@@ -324,10 +353,50 @@ export function useSetup() {
     closeModal();
   }
 
+  // Load available shapes from Archeon installation
+  async function loadShapes() {
+    if (!window.electronAPI) {
+      // Use fallback shapes when not in Electron
+      shapeOptions.value = fallbackShapeOptions;
+      return;
+    }
+
+    isLoadingShapes.value = true;
+    shapesError.value = null;
+
+    try {
+      const result = await window.electronAPI.getShapes();
+      
+      if (result.success && result.shapes.length > 0) {
+        shapeOptions.value = result.shapes;
+        shapesPath.value = result.path;
+        console.log(`[loadShapes] Loaded ${result.shapes.length} shapes from ${result.path}`);
+      } else {
+        // Use fallback shapes if none found
+        shapeOptions.value = fallbackShapeOptions;
+        shapesError.value = result.error || 'No shapes found in Archeon installation';
+        console.log('[loadShapes] Using fallback shapes:', result.error);
+      }
+    } catch (error) {
+      console.error('[loadShapes] Error:', error);
+      shapeOptions.value = fallbackShapeOptions;
+      shapesError.value = error.message;
+    } finally {
+      isLoadingShapes.value = false;
+    }
+  }
+
   // Initialize checks
-  function initChecks() {
-    checkCLIInstalled();
+  async function initChecks() {
+    await checkCLIInstalled();
     checkPipxInstalled();
+    // Load shapes after CLI check
+    if (isCLIInstalled.value) {
+      await loadShapes();
+    } else {
+      // Use fallback shapes if CLI not installed
+      shapeOptions.value = fallbackShapeOptions;
+    }
   }
 
   return {
@@ -346,16 +415,23 @@ export function useSetup() {
     isCheckingPipx,
     showPipxModal,
     isInstallingPipx,
+    
+    // Dynamic shapes state
+    shapeOptions,
+    isLoadingShapes,
+    shapesError,
+    shapesPath,
 
     // Constants (re-exported for template)
     INIT_PROMPT,
-    shapeOptions,
     ideRuleOptions,
     ideOptions,
 
     // Methods
     checkCLIInstalled,
+    refreshCLICheck,
     checkPipxInstalled,
+    loadShapes,
     handleOpenProject,
     selectIDE,
     selectMethod,

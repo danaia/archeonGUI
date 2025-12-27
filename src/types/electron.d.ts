@@ -74,6 +74,21 @@ interface PackageJsonResult {
   error?: string;
 }
 
+interface ShapeInfo {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  tags: string[];
+}
+
+interface GetShapesResult {
+  success: boolean;
+  shapes: ShapeInfo[];
+  path?: string;
+  error?: string;
+}
+
 interface ElectronAPI {
   // Project
   openProject: () => Promise<OpenProjectResult>;
@@ -101,6 +116,10 @@ interface ElectronAPI {
 
   // Shell
   openExternal: (url: string) => Promise<ShellResult>;
+  checkCommand: (command: string) => Promise<{ success: boolean; output?: string; error?: string }>;
+  
+  // Archeon Shapes
+  getShapes: () => Promise<GetShapesResult>;
 }
 
 declare global {

@@ -91,11 +91,12 @@ export const ideOptions = [
 
 // CLI installation commands
 // macOS uses Homebrew, Linux uses apt
+// Installs archeon directly from GitHub
 export const PIPX_INSTALL_COMMAND_MAC =
-  "echo && echo '=== Installing pipx + Archeon CLI ===' && echo && echo 'Step 1/2: Installing pipx via Homebrew...' && brew install pipx && pipx ensurepath && echo && echo '[OK] pipx installed!' && echo && echo 'Step 2/2: Installing Archeon CLI via pipx...' && pipx install git+https://github.com/danaia/archeon.git && echo && echo '[OK] Archeon CLI installed! Try: archeon --help' && echo && echo '⚠️  Important: Restart your terminal or run: source ~/.zshrc'";
+  "echo '\n📦 Installing pipx + Archeon CLI\n' && echo '→ Step 1/2: pipx via Homebrew...' && brew install pipx && pipx ensurepath && echo '✓ pipx ready\n' && echo '→ Step 2/2: Archeon CLI via pipx...' && pipx install --force git+https://github.com/danaia/archeon.git && hash -r && source ~/.zshrc && hash -r && if [ -f ~/.local/bin/archeon ]; then echo '\n✓ Archeon installed successfully!' && ~/.local/bin/archeon --version; else echo '\n✗ Installation failed'; fi && echo '\n💡 Tip: Click Check button to verify'";
 
 export const PIPX_INSTALL_COMMAND_LINUX =
-  "echo && echo '=== Installing pipx + Archeon CLI ===' && echo && echo 'Step 1/2: Installing pipx via apt...' && sudo apt update && sudo apt install -y pipx && pipx ensurepath && echo && echo '[OK] pipx installed!' && echo && echo 'Step 2/2: Installing Archeon CLI via pipx...' && pipx install git+https://github.com/danaia/archeon.git && echo && echo '[OK] Archeon CLI installed! Try: archeon --help'";
+  "echo '\n📦 Installing pipx + Archeon CLI\n' && echo '→ Step 1/2: pipx via apt...' && sudo apt update && sudo apt install -y pipx && pipx ensurepath && echo '✓ pipx ready\n' && echo '→ Step 2/2: Archeon CLI via pipx...' && pipx install --force git+https://github.com/danaia/archeon.git && hash -r && source ~/.bashrc && hash -r && if [ -f ~/.local/bin/archeon ]; then echo '\n✓ Archeon installed successfully!' && ~/.local/bin/archeon --version; else echo '\n✗ Installation failed'; fi && echo '\n💡 Tip: Click Check button to verify'";
 
 // Get the appropriate pipx install command based on platform
 export function getPipxInstallCommand() {
@@ -120,14 +121,21 @@ export function getCLIInstallCommand(isPipxInstalled) {
   const usePipx = (os === 'macos' || os === 'linux') && isPipxInstalled;
 
   const tool = usePipx ? "pipx" : "pip";
+  
   const installCmd = usePipx
-    ? "pipx install git+https://github.com/danaia/archeon.git"
-    : "python3 -m pip install --user git+https://github.com/danaia/archeon.git";
+    ? "pipx install --force git+https://github.com/danaia/archeon.git"
+    : "python3 -m pip install --user --force-reinstall git+https://github.com/danaia/archeon.git";
 
+  // Source shell config based on OS
+  const sourceCmd = os === 'macos' ? 'source ~/.zshrc' : 'source ~/.bashrc';
+  
   // For pip install on macOS, also add PATH instructions
   const pathNote = (!usePipx && os === 'macos')
-    ? " && echo && echo '⚠️  If archeon command not found, add to PATH:' && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' && echo 'Add this to your ~/.zshrc or ~/.bash_profile'"
+    ? ` && echo && echo '⚠️  If archeon command not found, add to PATH:' && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' && echo 'Add this to your ~/.zshrc or ~/.bash_profile'`
     : "";
 
-  return `echo && echo '=== ARCHEON CLI - Global Installation ===' && echo && echo 'Platform: ${os}' && echo 'Installing Archeon CLI using ${tool}...' && ${installCmd}${pathNote} && echo && echo '[OK] Installation complete! Try: archeon --help'`;
+  // Check for success after installation - use direct path check and hash refresh
+  const successCheck = `hash -r && ${sourceCmd} && hash -r && echo && echo 'Checking installation...' && if [ -f ~/.local/bin/archeon ]; then echo '[OK] Archeon binary found at ~/.local/bin/archeon' && ~/.local/bin/archeon --version; else echo '❌ ERROR: ~/.local/bin/archeon not found'; fi`;
+
+  return `echo && echo '=== ARCHEON CLI - Global Installation ===' && echo && echo 'Platform: ${os}' && echo 'Tool: ${tool}' && echo && ${installCmd}${pathNote} && ${successCheck} && echo && echo '⚠️  Note: Restart your terminal or run: ${sourceCmd}'`;
 }

@@ -17,15 +17,21 @@ const {
   showPromptModal,
   copiedFilesCount,
   isCLIInstalled,
+  isCheckingCLI,
   selectedShape,
   includeIDERules,
   isPipxInstalled,
   showPipxModal,
   isInstallingPipx,
+  
+  // Dynamic shapes state
+  shapeOptions,
+  isLoadingShapes,
+  shapesError,
+  shapesPath,
 
   // Constants
   INIT_PROMPT,
-  shapeOptions,
   ideRuleOptions,
   ideOptions,
 
@@ -44,6 +50,9 @@ const {
   copyPromptAndClose,
   skipPromptAndClose,
   initChecks,
+  checkCLIInstalled,
+  refreshCLICheck,
+  loadShapes,
 } = useSetup();
 
 // Check CLI and pipx status when modal opens
@@ -235,11 +244,16 @@ onMounted(() => {
                           Shapes
                         </h3>
                         <p class="text-xs text-ui-textMuted leading-relaxed">
-                          {{
-                            isCLIInstalled
-                              ? "Full-stack app templates. Vue/React + FastAPI."
-                              : "Install CLI first to use shapes."
-                          }}
+                          <span v-if="isCheckingCLI">
+                            Checking CLI installation...
+                          </span>
+                          <span v-else>
+                            {{
+                              isCLIInstalled
+                                ? "Full-stack app templates. Vue/React + FastAPI."
+                                : "Install CLI first to use shapes."
+                            }}
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -261,9 +275,20 @@ onMounted(() => {
                         />
                       </svg>
                     </div>
+                    <!-- Checking Badge -->
+                    <div
+                      v-if="isCheckingCLI"
+                      class="absolute -top-2 -right-2 px-2 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded-full text-xs text-blue-400 flex items-center gap-1"
+                    >
+                      <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Checking
+                    </div>
                     <!-- CLI Required Badge -->
                     <div
-                      v-if="!isCLIInstalled"
+                      v-else-if="!isCLIInstalled"
                       class="absolute -top-2 -right-2 px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-xs text-yellow-400"
                     >
                       CLI Required
@@ -334,12 +359,60 @@ onMounted(() => {
                 leave-to-class="opacity-0 -translate-y-2"
               >
                 <div v-if="installMethod === 'shapes'" class="mb-6">
-                  <p class="text-ui-textMuted text-xs mb-3">
-                    Select an architecture shape:
-                  </p>
+                  <div class="flex items-center justify-between mb-3">
+                    <p class="text-ui-textMuted text-xs">
+                      Select an architecture shape:
+                    </p>
+                    <div class="flex items-center gap-2">
+                      <!-- Shapes source indicator -->
+                      <div v-if="shapesPath" class="flex items-center gap-1 text-[10px] text-green-400/70">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span class="truncate max-w-[150px]" :title="shapesPath">From CLI</span>
+                      </div>
+                      <!-- Refresh shapes button -->
+                      <button
+                        @click="loadShapes"
+                        :disabled="isLoadingShapes"
+                        class="px-2 py-1 text-xs rounded bg-ui-bg border border-ui-border hover:bg-ui-bgLight transition-colors disabled:opacity-50 flex items-center gap-1"
+                        title="Refresh available shapes from Archeon installation"
+                      >
+                        <svg
+                          :class="['w-3 h-3', isLoadingShapes ? 'animate-spin' : '']"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                        {{ isLoadingShapes ? '' : 'Refresh' }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Loading state -->
+                  <div v-if="isLoadingShapes" class="flex items-center justify-center py-8">
+                    <svg class="w-6 h-6 animate-spin text-green-400" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="ml-2 text-sm text-ui-textMuted">Loading shapes from Archeon...</span>
+                  </div>
+
+                  <!-- Error state -->
+                  <div v-else-if="shapesError && shapeOptions.length === 0" class="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
+                    <p class="text-sm text-amber-400">{{ shapesError }}</p>
+                    <p class="text-xs text-ui-textMuted mt-1">Using default shapes instead.</p>
+                  </div>
 
                   <!-- Shape Cards -->
-                  <div class="grid grid-cols-2 gap-3 mb-4">
+                  <div v-else class="grid grid-cols-2 gap-3 mb-4">
                     <div
                       v-for="shape in shapeOptions"
                       :key="shape.id"
@@ -436,13 +509,39 @@ onMounted(() => {
                   class="mb-6 p-4 rounded-xl bg-gray-600/10 border border-gray-600/30"
                 >
                   <div class="flex items-start gap-3 mb-3">
-                    <div>
-                      <h4 class="font-semibold text-gray-300 text-sm mb-1">
-                        Archeon CLI
-                      </h4>
+                    <div class="flex-1">
+                      <div class="flex items-center justify-between mb-1">
+                        <h4 class="font-semibold text-gray-300 text-sm">
+                          Archeon CLI
+                        </h4>
+                        <button
+                          @click="refreshCLICheck"
+                          :disabled="isCheckingCLI"
+                          class="px-2 py-1 text-xs rounded bg-ui-bg border border-ui-border hover:bg-ui-bgLight transition-colors disabled:opacity-50 flex items-center gap-1"
+                          title="Refresh CLI installation status"
+                        >
+                          <svg
+                            :class="['w-3 h-3', isCheckingCLI ? 'animate-spin' : '']"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+                          {{ isCheckingCLI ? 'Checking...' : 'Refresh' }}
+                        </button>
+                      </div>
                       <p class="text-xs text-ui-textMuted">
                         The CLI provides powerful project scaffolding, glyph
                         management, and sync capabilities.
+                      </p>
+                      <p v-if="isCLIInstalled" class="text-xs text-green-400 mt-2">
+                        ✓ CLI is already installed
                       </p>
                     </div>
                   </div>
@@ -460,7 +559,7 @@ onMounted(() => {
 
                   <!-- Source Link -->
                   <div
-                    class="flex items-center gap-2 text-xs text-ui-textMuted"
+                    class="flex items-center gap-2 text-xs text-ui-textMuted mb-4"
                   >
                     <a
                       href="https://github.com/danaia/archeon"
@@ -470,6 +569,22 @@ onMounted(() => {
                     >
                       github.com/danaia/archeon
                     </a>
+                  </div>
+
+                  <!-- Next Steps Message -->
+                  <div 
+                  v-if="isCLIInstalled" 
+                    class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20"
+                  >
+                    <p class="text-xs text-blue-300/90 mb-2">
+                      <strong>Next Steps:</strong>
+                    </p>
+                    <ul class="text-xs text-blue-300/80 space-y-1 list-disc list-inside">
+                      <li>Click <strong>Install CLI</strong> to install the CLI)</li>
+                      <li>Wait for installation to complete</li>
+                      <li>Click <strong>Check</strong> to verify installation</li>
+                      <li>Close and reopen Setup add a Shape</li>
+                    </ul>
                   </div>
                 </div>
               </Transition>
@@ -583,10 +698,10 @@ onMounted(() => {
                 <button
                   v-if="installMethod === 'shapes'"
                   @click="scaffoldWithShape"
-                  :disabled="!selectedShape"
+                  :disabled="!selectedShape || isLoadingShapes"
                   :class="[
                     'flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-medium transition-all flex items-center justify-center gap-2',
-                    selectedShape
+                    selectedShape && !isLoadingShapes
                       ? 'bg-green-600 hover:bg-green-700 active:bg-green-800 shadow-md hover:shadow-lg'
                       : 'bg-gray-400 cursor-not-allowed text-black font-bold',
                   ]"
