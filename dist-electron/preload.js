@@ -43,5 +43,7 @@ t.exposeInMainWorld("electronAPI", {
   // ============ SHELL ============
   exec: (e, o) => n.invoke("shell:exec", e, o),
   openExternal: (e) => n.invoke("shell:openExternal", e),
-  checkCommand: (e) => n.invoke("shell:checkCommand", e)
+  checkCommand: (e) => n.invoke("shell:checkCommand", e),
+  // ============ ARCHEON SHAPES ============
+  getShapes: () => n.invoke("archeon:getShapes")
 });

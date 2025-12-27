@@ -122,6 +122,38 @@ async function initTerminal() {
   await nextTick();
   fitAddon.fit();
 
+  // Handle copy/paste shortcuts
+  terminal.attachCustomKeyEventHandler((event) => {
+    // Cmd+C (Mac) or Ctrl+C (Windows/Linux) - copy selected text
+    if ((event.metaKey || event.ctrlKey) && event.key === 'c' && event.type === 'keydown') {
+      const selection = terminal.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection);
+        return false; // Prevent default terminal handling
+      }
+      // If no selection, let Ctrl+C pass through to send SIGINT
+      return true;
+    }
+    
+    // Cmd+V (Mac) or Ctrl+V (Windows/Linux) - paste from clipboard
+    if ((event.metaKey || event.ctrlKey) && event.key === 'v' && event.type === 'keydown') {
+      navigator.clipboard.readText().then((text) => {
+        if (text && ptyId !== null && window.electronAPI) {
+          window.electronAPI.ptyWrite(ptyId, text);
+        }
+      });
+      return false; // Prevent default
+    }
+    
+    // Cmd+A (Mac) or Ctrl+A (Windows/Linux) - select all
+    if ((event.metaKey || event.ctrlKey) && event.key === 'a' && event.type === 'keydown') {
+      terminal.selectAll();
+      return false;
+    }
+    
+    return true; // Let other keys pass through
+  });
+
   if (isElectron.value) {
     // Real PTY mode - spawn actual shell
     await spawnPty();
@@ -548,6 +580,19 @@ async function handleNpmPreview() {
   }
 }
 
+// Check Archeon installation by running arc command
+function handleCheckArcheon() {
+  if (!window.electronAPI || ptyId === null) {
+    terminal?.write(
+      "\x1b[31mTerminal not available.\x1b[0m\r\n"
+    );
+    return;
+  }
+
+  // Simply run arc to show help/usage
+  window.electronAPI.ptyWrite(ptyId, "arc\n");
+}
+
 // Watch for expansion to initialize terminal
 watch(isExpanded, (expanded) => {
   if (expanded) {
@@ -729,6 +774,26 @@ onUnmounted(() => {
           title="Setup"
         >
           Setup
+        </button>
+        <button
+          @click.stop="handleCheckArcheon"
+          class="px-2 py-1 text-xs font-medium rounded bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 transition-colors pointer-events-auto flex items-center gap-1"
+          title="Source ~/.zshrc and check archeon --version"
+        >
+          <svg
+            class="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          Check
         </button>
       </div>
 
