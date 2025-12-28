@@ -401,16 +401,16 @@ onUnmounted(() => {
 <template>
   <Teleport to="body">
     <Transition
-      enter-active-class="transition-transform duration-300 ease-out"
+      enter-active-class="transition-transform duration-300 ease-out drawer-animate"
       enter-from-class="translate-x-full"
       enter-to-class="translate-x-0"
-      leave-active-class="transition-transform duration-200 ease-in"
+      leave-active-class="transition-transform duration-200 ease-in drawer-animate"
       leave-from-class="translate-x-0"
       leave-to-class="translate-x-full"
     >
       <div
         v-if="isOpen"
-        class="fixed top-0 right-0 h-full z-50 flex"
+        class="fixed top-0 right-0 h-full z-50 flex drawer-animate"
         :style="{ width: uiStore.drawerWidth + 'px' }"
         :class="{ 'select-none': isResizing }"
         @focusin="onFocusIn"

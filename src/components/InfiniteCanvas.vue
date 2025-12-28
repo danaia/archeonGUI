@@ -513,7 +513,7 @@ onUnmounted(() => {
 <template>
   <div
     ref="canvasRef"
-    class="absolute inset-0 bg-canvas-bg overflow-hidden no-select"
+    class="absolute inset-0 bg-canvas-bg overflow-hidden no-select canvas-container"
     :class="cursorClass"
     @mousedown="handleMouseDown"
     @mousemove="handleMouseMove"
@@ -521,7 +521,7 @@ onUnmounted(() => {
     @mouseleave="handleMouseLeave"
   >
     <!-- Grid Lines Layer -->
-    <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-30">
+    <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-30 gpu-accelerated">
       <line
         v-for="line in gridLines.vertical"
         :key="'v-' + line.col"
@@ -547,7 +547,7 @@ onUnmounted(() => {
     <!-- Selection Box Layer -->
     <div
       v-if="selectionBox"
-      class="absolute border-2 border-indigo-500 bg-indigo-500/10 pointer-events-none z-50"
+      class="absolute border-2 border-indigo-500 bg-indigo-500/10 pointer-events-none z-50 gpu-accelerated"
       :style="{
         left: selectionBox.left + 'px',
         top: selectionBox.top + 'px',

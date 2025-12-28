@@ -35,16 +35,36 @@ export default {
       },
       keyframes: {
         slideInRight: {
-          "0%": { transform: "translateX(100%)" },
-          "100%": { transform: "translateX(0)" },
+          "0%": { 
+            transform: "translateX(100%) translate3d(0, 0, 0)",
+            backfaceVisibility: "hidden",
+          },
+          "100%": { 
+            transform: "translateX(0) translate3d(0, 0, 0)",
+            backfaceVisibility: "hidden",
+          },
         },
         slideOutRight: {
-          "0%": { transform: "translateX(0)" },
-          "100%": { transform: "translateX(100%)" },
+          "0%": { 
+            transform: "translateX(0) translate3d(0, 0, 0)",
+            backfaceVisibility: "hidden",
+          },
+          "100%": { 
+            transform: "translateX(100%) translate3d(0, 0, 0)",
+            backfaceVisibility: "hidden",
+          },
         },
         expandUp: {
-          "0%": { transform: "scaleY(0)", transformOrigin: "bottom" },
-          "100%": { transform: "scaleY(1)", transformOrigin: "bottom" },
+          "0%": { 
+            transform: "scaleY(0) translate3d(0, 0, 0)", 
+            transformOrigin: "bottom",
+            backfaceVisibility: "hidden",
+          },
+          "100%": { 
+            transform: "scaleY(1) translate3d(0, 0, 0)", 
+            transformOrigin: "bottom",
+            backfaceVisibility: "hidden",
+          },
         },
       },
     },

@@ -731,17 +731,17 @@ onUnmounted(() => {
 <template>
   <!-- Collapsed State - Floating Button -->
   <Transition
-    enter-active-class="transition-all duration-200 ease-out"
+    enter-active-class="transition-all duration-200 ease-out animate-gpu"
     enter-from-class="opacity-0 scale-90"
     enter-to-class="opacity-100 scale-100"
-    leave-active-class="transition-all duration-150 ease-in"
+    leave-active-class="transition-all duration-150 ease-in animate-gpu"
     leave-from-class="opacity-100 scale-100"
     leave-to-class="opacity-0 scale-90"
   >
     <button
       v-if="!isExpanded"
       @click="handleToggle"
-      class="fixed bottom-4 left-4 z-[100] flex items-center px-4 py-3 bg-terminal-bg border border-ui-border rounded-lg shadow-lg hover:bg-ui-bgLight transition-colors group"
+      class="fixed bottom-4 left-4 z-[100] flex items-center px-4 py-3 bg-terminal-bg border border-ui-border rounded-lg shadow-lg hover:bg-ui-bgLight transition-colors group animate-gpu"
     >
       <svg
         class="w-5 h-5 text-terminal-text"
@@ -763,7 +763,7 @@ onUnmounted(() => {
   <!-- NO v-if - keep DOM alive, use visibility + position to hide -->
   <div
     ref="terminalContainerRef"
-    class="terminal-panel fixed z-[100] flex flex-col bg-terminal-bg border border-ui-border rounded-lg shadow-2xl transition-opacity duration-200"
+    class="terminal-panel fixed z-[100] flex flex-col bg-terminal-bg border border-ui-border rounded-lg shadow-2xl panel-animate"
     :class="{
       'select-none': isDragging || isResizing,
       'opacity-0 pointer-events-none': !isExpanded,

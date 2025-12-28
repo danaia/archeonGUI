@@ -62,3 +62,59 @@ body,
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* GPU Acceleration Utilities */
+@layer utilities {
+  /* Enable GPU acceleration for smooth animations */
+  .gpu-accelerated {
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+
+  /* For animating elements - prepare for animation */
+  .animate-gpu {
+    will-change: transform;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+  }
+
+  /* For transitions - optimize transitions */
+  .transition-gpu {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+  }
+
+  /* For drawer and modal animations */
+  .drawer-animate {
+    will-change: transform;
+    backface-visibility: hidden;
+    perspective: 1000px;
+    transform: translate3d(0, 0, 0);
+  }
+
+  /* For terminal panel animations */
+  .panel-animate {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    perspective: 1000px;
+    transform: translate3d(0, 0, 0);
+  }
+
+  /* For canvas rendering */
+  .canvas-container {
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+  }
+
+  /* Smooth color transitions */
+  .color-transition {
+    transition-property: background-color, border-color, color;
+    transition-timing-function: ease-out;
+    transition-duration: 200ms;
+    will-change: background-color, border-color, color;
+  }
+}
+

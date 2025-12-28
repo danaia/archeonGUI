@@ -77,16 +77,16 @@ onMounted(() => {
   <Teleport to="body">
     <!-- Modal Overlay -->
     <Transition
-      enter-active-class="transition-all duration-200 ease-out"
+      enter-active-class="transition-all duration-200 ease-out animate-gpu"
       enter-from-class="opacity-0"
       enter-to-class="opacity-100"
-      leave-active-class="transition-all duration-150 ease-in"
+      leave-active-class="transition-all duration-150 ease-in animate-gpu"
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
       <div
         v-if="uiStore.isSetupModalOpen"
-        class="fixed inset-0 z-[200] flex items-center justify-center"
+        class="fixed inset-0 z-[200] flex items-center justify-center animate-gpu"
         @click="closeModal"
       >
         <!-- Backdrop -->
@@ -94,16 +94,16 @@ onMounted(() => {
 
         <!-- Modal Content -->
         <Transition
-          enter-active-class="transition-all duration-200 ease-out"
+          enter-active-class="transition-all duration-200 ease-out animate-gpu"
           enter-from-class="opacity-0 scale-95 translate-y-2"
           enter-to-class="opacity-100 scale-100 translate-y-0"
-          leave-active-class="transition-all duration-150 ease-in"
+          leave-active-class="transition-all duration-150 ease-in animate-gpu"
           leave-from-class="opacity-100 scale-100 translate-y-0"
           leave-to-class="opacity-0 scale-95 translate-y-2"
         >
           <div
             v-if="uiStore.isSetupModalOpen"
-            class="relative bg-ui-bg border border-ui-border rounded-lg shadow-2xl max-w-3xl w-full mx-4"
+            class="relative bg-ui-bg border border-ui-border rounded-lg shadow-2xl max-w-3xl w-full mx-4 animate-gpu"
             @click.stop
           >
             <!-- Modal Header -->
