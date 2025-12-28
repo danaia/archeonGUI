@@ -66,9 +66,14 @@ Added reusable utility classes in `src/style.css`:
 
 #### InfiniteCanvas.vue
 - Canvas container has `canvas-container` class
-- Grid SVG layer uses `gpu-accelerated` class
+- **CSS Grid Pattern** - Replaced SVG grid lines with CSS `background-image` pattern (massive performance boost)
+- **GPU-accelerated tiles** - Using `transform: translate3d()` instead of `left/top` positioning
+- **Conditional transitions** - Transitions disabled during pan/zoom via `isCameraMoving` state
+- **CSS Containment** - Added `contain: layout style paint` to layers for isolation
+- **Pre-computed line coordinates** - Connection line endpoints calculated once in computed property
+- **Tile GPU class** - Custom `.tile-gpu` class with `will-change: transform` and `backface-visibility: hidden`
 - Selection box layer GPU-accelerated
-- Ensures smooth pan/zoom and tile interactions
+- Ensures smooth 60fps pan/zoom interactions
 
 ### 5. **Will-Change Strategy**
 The `will-change` property is carefully applied to:
@@ -83,6 +88,43 @@ The `will-change` property is carefully applied to:
 2. **Reduced Jank**: No layout thrashing during animations
 3. **Better Battery Life**: GPU acceleration is more power-efficient than CPU rendering
 4. **Consistent Frame Rate**: Animations target 60 FPS with GPU acceleration
+5. **Snappy Pan/Zoom**: Canvas operations are now buttery smooth at 60fps
+
+## InfiniteCanvas Specific Optimizations
+
+### Problem: Sluggish Pan/Zoom
+The original implementation had several performance issues:
+- SVG grid with hundreds of individual `<line>` elements
+- CSS transitions running during camera movement
+- Using `left/top` positioning (triggers layout)
+- Recalculating connection line coordinates in template bindings
+
+### Solution: GPU-First Rendering
+
+1. **CSS Grid Pattern**: Replaced SVG grid lines with a CSS `background-image` using linear gradients
+   ```css
+   backgroundImage: `
+     linear-gradient(to right, #1a1a1a 1px, transparent 1px),
+     linear-gradient(to bottom, #1a1a1a 1px, transparent 1px)
+   `
+   ```
+   This single div replaces potentially hundreds of SVG lines.
+
+2. **Transform-Based Positioning**: Tiles now use `transform: translate3d(x, y, 0)` instead of `left/top`
+   - GPU-accelerated, doesn't trigger layout
+   - Smooth subpixel rendering
+
+3. **Conditional Transitions**: Added `isCameraMoving` state that:
+   - Disables all CSS transitions during pan/zoom
+   - Re-enables transitions 150ms after camera stops
+   - Prevents animation queuing that causes jank
+
+4. **CSS Containment**: Added `contain: layout style paint` to tile/badge containers
+   - Isolates rendering to specific layers
+   - Prevents cascading repaints
+
+5. **Pre-computed Coordinates**: Connection line endpoints calculated once in the `visibleBadges` computed property
+   - Avoids multiple `worldToScreen()` calls per badge in template
 
 ## Browser Compatibility
 

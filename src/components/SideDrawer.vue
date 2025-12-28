@@ -657,45 +657,7 @@ onUnmounted(() => {
             </div>
 
             <!-- File Path -->
-            <div class="mb-4" v-if="selectedTile.file">
-              <h4
-                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
-              >
-                Source File
-              </h4>
-              <button
-                @click="openFileInEditor(selectedTile.file)"
-                class="w-full bg-ui-bgLight rounded-lg p-3 hover:bg-ui-border transition-colors text-left group"
-                :title="`Open in editor: ${selectedTile.file}`"
-              >
-                <code class="text-xs text-green-400 break-all group-hover:text-green-300 transition-colors flex items-center gap-2">
-                  <svg class="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  <span>{{ selectedTile.file }}</span>
-                </code>
-              </button>
-            </div>
-            <!-- File Path -->
-            <div class="mb-4" v-if="selectedTile.file">
-              <h4
-                class="text-sm font-medium text-ui-textMuted mb-2 uppercase tracking-wider"
-              >
-                Source File
-              </h4>
-              <button
-                @click="openFileInEditor(selectedTile.file)"
-                class="w-full bg-ui-bgLight rounded-lg p-3 hover:bg-ui-border transition-colors text-left group"
-                :title="`Open in editor: ${selectedTile.file}`"
-              >
-                <code class="text-xs text-green-400 break-all group-hover:text-green-300 transition-colors flex items-center gap-2">
-                  <svg class="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  <span>{{ selectedTile.file }}</span>
-                </code>
-              </button>
-            </div>
+        
           </template>
 
           <!-- RELATIONSHIP MODE -->

@@ -37,12 +37,12 @@ watch(
     if (isOpen && uiStore.editingTile) {
       // If editing existing tile
       const tile = uiStore.editingTile;
-      selectedGlyphType.value = tile.glyphType || "CMP";
+      selectedGlyphType.value = tile.glyphType || "NED";
       intent.value = tile.intent || "";
       tileName.value = tile.name || "";
     } else if (isOpen) {
       // If adding new tile
-      selectedGlyphType.value = "CMP";
+      selectedGlyphType.value = "NED";
       intent.value = "";
       tileName.value = "";
     }
@@ -213,7 +213,7 @@ function handleBackdropClick() {
                       :key="glyph.id"
                       :value="glyph.id"
                     >
-                      {{ glyph.icon }} {{ glyph.id }}: {{ glyph.name }} - {{ glyph.description }}
+                      {{ glyph.id }}: {{ glyph.name }} - {{ glyph.description }}
                     </option>
                   </optgroup>
                 </select>

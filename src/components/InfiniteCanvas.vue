@@ -37,6 +37,10 @@ const {
 const canvasRef = ref(null);
 const lastMousePos = ref({ x: 0, y: 0 });
 
+// Performance: track if camera is moving to disable transitions
+const isCameraMoving = ref(false);
+let cameraMovingTimeout = null;
+
 // Debounced camera save (to avoid excessive writes on zoom)
 let cameraSaveTimeout = null;
 function debouncedSaveCamera() {
@@ -118,7 +122,7 @@ const visibleTiles = computed(() => {
   return result;
 });
 
-// Get visible relationships with badge positions
+// Get visible relationships with badge positions (pre-computed line positions for performance)
 const visibleBadges = computed(() => {
   const result = [];
 
@@ -159,6 +163,10 @@ const visibleBadges = computed(() => {
     const midWorldY = (sourceCenterY + targetCenterY) / 2;
 
     const screenPos = canvasStore.worldToScreen(midWorldX, midWorldY);
+    
+    // Pre-compute line endpoints for SVG (avoids recalculating in template)
+    const sourceScreen = canvasStore.worldToScreen(sourceCenterX, sourceCenterY);
+    const targetScreen = canvasStore.worldToScreen(targetCenterX, targetCenterY);
 
     // Calculate angle for badge orientation
     const angle = Math.atan2(
@@ -174,6 +182,11 @@ const visibleBadges = computed(() => {
       ...rel,
       screenX: screenPos.x,
       screenY: screenPos.y,
+      // Pre-computed line endpoints
+      lineX1: sourceScreen.x,
+      lineY1: sourceScreen.y,
+      lineX2: targetScreen.x,
+      lineY2: targetScreen.y,
       size: scaledSize,
       angle: angle * (180 / Math.PI),
       isSelected: relationshipStore.isSelected(
@@ -192,26 +205,23 @@ const visibleBadges = computed(() => {
   return result;
 });
 
-// Calculate grid lines
-const gridLines = computed(() => {
-  const range = canvasStore.visibleGridRange;
-  const lines = { horizontal: [], vertical: [] };
-
-  // Vertical lines
-  for (let col = range.minCol; col <= range.maxCol + 1; col++) {
-    const worldX = col * canvasStore.cellWidth - canvasStore.gridGap / 2;
-    const screen = canvasStore.worldToScreen(worldX, 0);
-    lines.vertical.push({ x: screen.x, col });
-  }
-
-  // Horizontal lines
-  for (let row = range.minRow; row <= range.maxRow + 1; row++) {
-    const worldY = row * canvasStore.cellHeight - canvasStore.gridGap / 2;
-    const screen = canvasStore.worldToScreen(0, worldY);
-    lines.horizontal.push({ y: screen.y, row });
-  }
-
-  return lines;
+// CSS-based grid pattern for maximum performance (replaces SVG grid lines)
+const gridPatternStyle = computed(() => {
+  const cellW = canvasStore.cellWidth * canvasStore.zoom;
+  const cellH = canvasStore.cellHeight * canvasStore.zoom;
+  
+  // Calculate offset based on camera position
+  const offsetX = (canvasStore.cameraX * canvasStore.zoom) % cellW;
+  const offsetY = (canvasStore.cameraY * canvasStore.zoom) % cellH;
+  
+  return {
+    backgroundImage: `
+      linear-gradient(to right, #1a1a1a 1px, transparent 1px),
+      linear-gradient(to bottom, #1a1a1a 1px, transparent 1px)
+    `,
+    backgroundSize: `${cellW}px ${cellH}px`,
+    backgroundPosition: `${offsetX}px ${offsetY}px`,
+  };
 });
 
 // Mouse event handlers
@@ -219,6 +229,14 @@ function handleWheel(e) {
   if (!uiStore.canvasInteractionsEnabled) return;
   e.preventDefault();
   e.stopPropagation();
+  
+  // Mark camera as moving to disable CSS transitions during zoom
+  isCameraMoving.value = true;
+  if (cameraMovingTimeout) clearTimeout(cameraMovingTimeout);
+  cameraMovingTimeout = setTimeout(() => {
+    isCameraMoving.value = false;
+  }, 150);
+  
   canvasStore.zoomAt(e.clientX, e.clientY, e.deltaY);
 
   // Debounced save camera on zoom
@@ -253,6 +271,13 @@ function handleMouseMove(e) {
     const deltaY = e.clientY - lastMousePos.value.y;
     canvasStore.pan(deltaX, deltaY);
     lastMousePos.value = { x: e.clientX, y: e.clientY };
+    
+    // Mark camera as moving to disable CSS transitions
+    isCameraMoving.value = true;
+    if (cameraMovingTimeout) clearTimeout(cameraMovingTimeout);
+    cameraMovingTimeout = setTimeout(() => {
+      isCameraMoving.value = false;
+    }, 150);
   } else if (isSelecting.value) {
     updateSelection(e.clientX, e.clientY);
   } else if (isDraggingTiles.value) {
@@ -520,29 +545,11 @@ onUnmounted(() => {
     @mouseup="handleMouseUp"
     @mouseleave="handleMouseLeave"
   >
-    <!-- Grid Lines Layer -->
-    <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-30 gpu-accelerated">
-      <line
-        v-for="line in gridLines.vertical"
-        :key="'v-' + line.col"
-        :x1="line.x"
-        :y1="0"
-        :x2="line.x"
-        :y2="canvasStore.viewportHeight"
-        class="stroke-canvas-grid"
-        stroke-width="1"
-      />
-      <line
-        v-for="line in gridLines.horizontal"
-        :key="'h-' + line.row"
-        :x1="0"
-        :y1="line.y"
-        :x2="canvasStore.viewportWidth"
-        :y2="line.y"
-        class="stroke-canvas-grid"
-        stroke-width="1"
-      />
-    </svg>
+    <!-- Grid Lines Layer - CSS Pattern for performance -->
+    <div 
+      class="absolute inset-0 pointer-events-none opacity-30 gpu-accelerated"
+      :style="gridPatternStyle"
+    />
 
     <!-- Selection Box Layer -->
     <div
@@ -556,8 +563,8 @@ onUnmounted(() => {
       }"
     ></div>
 
-    <!-- Connection Lines Layer (behind badges) -->
-    <svg class="absolute inset-0 w-full h-full pointer-events-none">
+    <!-- Connection Lines Layer (behind badges) - using pre-computed coordinates -->
+    <svg class="absolute inset-0 w-full h-full pointer-events-none" style="contain: layout style paint;">
       <defs>
         <marker
           id="arrowhead"
@@ -580,93 +587,38 @@ onUnmounted(() => {
           <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444" />
         </marker>
       </defs>
-      <g v-for="badge in visibleBadges" :key="'line-' + badge.id">
-        <line
-          :x1="
-            canvasStore.worldToScreen(
-              canvasStore.gridToWorld(
-                badge.sourceTile.col,
-                badge.sourceTile.row
-              ).x +
-                canvasStore.tileWidth / 2,
-              canvasStore.gridToWorld(
-                badge.sourceTile.col,
-                badge.sourceTile.row
-              ).y +
-                canvasStore.tileHeight / 2
-            ).x
-          "
-          :y1="
-            canvasStore.worldToScreen(
-              canvasStore.gridToWorld(
-                badge.sourceTile.col,
-                badge.sourceTile.row
-              ).x +
-                canvasStore.tileWidth / 2,
-              canvasStore.gridToWorld(
-                badge.sourceTile.col,
-                badge.sourceTile.row
-              ).y +
-                canvasStore.tileHeight / 2
-            ).y
-          "
-          :x2="
-            canvasStore.worldToScreen(
-              canvasStore.gridToWorld(
-                badge.targetTile.col,
-                badge.targetTile.row
-              ).x +
-                canvasStore.tileWidth / 2,
-              canvasStore.gridToWorld(
-                badge.targetTile.col,
-                badge.targetTile.row
-              ).y +
-                canvasStore.tileHeight / 2
-            ).x
-          "
-          :y2="
-            canvasStore.worldToScreen(
-              canvasStore.gridToWorld(
-                badge.targetTile.col,
-                badge.targetTile.row
-              ).x +
-                canvasStore.tileWidth / 2,
-              canvasStore.gridToWorld(
-                badge.targetTile.col,
-                badge.targetTile.row
-              ).y +
-                canvasStore.tileHeight / 2
-            ).y
-          "
-          :stroke="badge.edgeInfo?.color || '#6366f1'"
-          stroke-width="2"
-          stroke-dasharray="4,4"
-          :class="{
-            'opacity-70': !badge.isHovered && !badge.isSelected,
-            'opacity-100': badge.isHovered || badge.isSelected,
-          }"
-        />
-      </g>
+      <line
+        v-for="badge in visibleBadges"
+        :key="'line-' + badge.id"
+        :x1="badge.lineX1"
+        :y1="badge.lineY1"
+        :x2="badge.lineX2"
+        :y2="badge.lineY2"
+        :stroke="badge.edgeInfo?.color || '#6366f1'"
+        stroke-width="2"
+        stroke-dasharray="4,4"
+        :opacity="badge.isHovered || badge.isSelected ? 1 : 0.7"
+      />
     </svg>
 
     <!-- Glyph Tiles Layer -->
-    <div class="absolute inset-0 pointer-events-none">
+    <div class="absolute inset-0 pointer-events-none" style="contain: layout style;">
       <div
         v-for="tile in visibleTiles"
         :key="tile.id"
-        class="absolute transition-all duration-150 ease-out rounded-lg border-2 overflow-hidden pointer-events-auto"
+        class="absolute rounded-lg border-2 overflow-hidden pointer-events-auto tile-gpu"
         :class="[
           tile.isSelected
             ? 'ring-2 ring-offset-2 ring-offset-canvas-bg shadow-lg'
             : tile.isMultiSelected
             ? 'ring-2 ring-offset-1 ring-offset-canvas-bg ring-indigo-500 shadow-lg'
-            : tile.isHovered
+            : tile.isHovered && !isCameraMoving
             ? 'shadow-md'
             : '',
+          isCameraMoving ? '' : 'tile-transition',
         ]"
         :style="{
-          left: tile.screenX + 'px',
-          top: tile.screenY + 'px',
+          transform: `translate3d(${tile.screenX}px, ${tile.screenY}px, 0) ${tile.isHovered && !tile.isSelected && !tile.isMultiSelected && !isCameraMoving ? 'scale(1.02)' : ''}`,
           width: tile.width + 'px',
           height: tile.height + 'px',
           backgroundColor: tile.typeInfo?.bgColor || '#252538',
@@ -678,10 +630,6 @@ onUnmounted(() => {
             ? tile.typeInfo?.color + '80'
             : tile.typeInfo?.color + '40' || '#4a4a6a',
           '--ring-color': tile.typeInfo?.color || '#6366f1',
-          transform:
-            tile.isHovered && !tile.isSelected && !tile.isMultiSelected
-              ? 'scale(1.02)'
-              : 'scale(1)',
           cursor:
             tile.isMultiSelected && isDraggingTiles
               ? 'grabbing'
@@ -856,21 +804,21 @@ onUnmounted(() => {
     </div>
 
     <!-- Relationship Badges Layer -->
-    <div class="absolute inset-0 pointer-events-none">
+    <div class="absolute inset-0 pointer-events-none" style="contain: layout style;">
       <div
         v-for="badge in visibleBadges"
         :key="'badge-' + badge.id"
-        class="absolute pointer-events-auto flex items-center justify-center rounded-full cursor-pointer transition-all duration-150"
+        class="absolute pointer-events-auto flex items-center justify-center rounded-full cursor-pointer badge-gpu"
         :class="[
           badge.isSelected
-            ? 'ring-2 ring-white shadow-lg scale-110'
-            : badge.isHovered
-            ? 'shadow-md scale-105'
+            ? 'ring-2 ring-white shadow-lg'
+            : badge.isHovered && !isCameraMoving
+            ? 'shadow-md'
             : 'shadow',
+          isCameraMoving ? '' : 'badge-transition',
         ]"
         :style="{
-          left: badge.screenX - badge.size / 2 + 'px',
-          top: badge.screenY - badge.size / 2 + 'px',
+          transform: `translate3d(${badge.screenX - badge.size / 2}px, ${badge.screenY - badge.size / 2}px, 0) ${badge.isSelected ? 'scale(1.1)' : badge.isHovered && !isCameraMoving ? 'scale(1.05)' : ''}`,
           width: badge.size + 'px',
           height: badge.size + 'px',
           backgroundColor: badge.edgeInfo?.color || '#6366f1',
@@ -1148,5 +1096,27 @@ onUnmounted(() => {
 /* Custom ring color based on tile type */
 [style*="--ring-color"] {
   --tw-ring-color: var(--ring-color);
+}
+
+/* GPU-accelerated tiles - no transitions during camera movement */
+.tile-gpu {
+  will-change: transform;
+  backface-visibility: hidden;
+  contain: layout style paint;
+}
+
+.tile-transition {
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, border-color 0.15s ease-out;
+}
+
+/* GPU-accelerated badges */
+.badge-gpu {
+  will-change: transform;
+  backface-visibility: hidden;
+  contain: layout style paint;
+}
+
+.badge-transition {
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 </style>

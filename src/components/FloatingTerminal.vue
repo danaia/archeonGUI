@@ -817,14 +817,14 @@ onUnmounted(() => {
         <button
           @click.stop="uiStore.openSetupModal"
           :disabled="!projectStore.projectPath"
-          class="w-full px-2 py-2 text-xs font-medium rounded bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-green-400/30"
+          class="w-full px-2 py-2 text-xs font-medium rounded bg-gray-700/20 text-gray-300 hover:bg-gray-700/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-gray-500/30"
           title="Setup"
         >
           Setup
         </button>
         <button
           @click.stop="handleCheckArcheon"
-          class="w-full px-2 py-2 text-xs font-medium rounded bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 transition-colors border border-purple-400/30"
+          class="w-full px-2 py-2 text-xs font-medium rounded bg-gray-700/20 text-gray-300 hover:bg-gray-700/30 transition-colors border border-gray-500/30"
           title="Check archeon"
         >
           Check
@@ -837,7 +837,7 @@ onUnmounted(() => {
           <button
             @click.stop="handleNpmInstall"
             :disabled="isRunningNpmCommand || !hasProjectContent"
-            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-green-400/30"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-gray-700/20 text-gray-300 hover:bg-gray-700/30 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-500/30"
             title="NPM install"
           >
             Install
@@ -845,7 +845,7 @@ onUnmounted(() => {
           <button
             @click.stop="handleNpmRun"
             :disabled="isRunningNpmCommand || !hasProjectContent"
-            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-green-400/30"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-gray-700/20 text-gray-300 hover:bg-gray-700/30 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-500/30"
             :title="`npm run ${devScriptName}`"
           >
             Run
@@ -853,7 +853,7 @@ onUnmounted(() => {
           <button
             @click.stop="handleNpmPreview"
             :disabled="!devServerUrl"
-            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-green-400/30"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-gray-700/20 text-gray-300 hover:bg-gray-700/30 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-500/30"
             :title="devServerUrl ? `Open ${devServerUrl}` : 'Run dev server first'"
           >
             Preview
@@ -897,26 +897,26 @@ onUnmounted(() => {
       </div>
 
       <!-- Frontend/Backend Tabs -->
-      <div class="flex items-center gap-0 pointer-events-auto mx-4">
+      <div class="flex items-center gap-0 pointer-events-auto ml-auto">
         <button
           @click.stop="switchTab('frontend')"
           :class="[
             'px-3 py-1 text-xs font-medium transition-colors',
             activeTab === 'frontend'
-              ? 'bg-green-600/20 text-green-400 border-b-2 border-green-400'
+              ? 'text-green-400 border-b-2 border-green-400'
               : 'text-ui-textMuted hover:text-ui-text'
           ]"
           title="Frontend Terminal"
         >
           Frontend
         </button>
-        <div class="w-px h-4 bg-ui-border"></div>
+        <div class="w-px h-4 bg-ui-border mx-1"></div>
         <button
           @click.stop="switchTab('backend')"
           :class="[
             'px-3 py-1 text-xs font-medium transition-colors',
             activeTab === 'backend'
-              ? 'bg-blue-600/20 text-blue-400 border-b-2 border-blue-400'
+              ? 'text-blue-400 border-b-2 border-blue-400'
               : 'text-ui-textMuted hover:text-ui-text'
           ]"
           title="Backend Terminal"
