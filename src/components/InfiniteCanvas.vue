@@ -207,12 +207,17 @@ const visibleBadges = computed(() => {
 
 // CSS-based grid pattern for maximum performance (replaces SVG grid lines)
 const gridPatternStyle = computed(() => {
-  const cellW = canvasStore.cellWidth * canvasStore.zoom;
-  const cellH = canvasStore.cellHeight * canvasStore.zoom;
+  const cellW = canvasStore.scaledCellWidth;
+  const cellH = canvasStore.scaledCellHeight;
   
-  // Calculate offset based on camera position
-  const offsetX = (canvasStore.cameraX * canvasStore.zoom) % cellW;
-  const offsetY = (canvasStore.cameraY * canvasStore.zoom) % cellH;
+  // Convert camera world position to screen position
+  // The grid pattern offset must match where world (0,0) appears on screen
+  const screenOrigin = canvasStore.worldToScreen(0, 0);
+  
+  // The offset is where the origin grid line appears on the canvas
+  // We use modulo to keep it within one grid cell size for CSS pattern
+  const offsetX = ((screenOrigin.x % cellW) + cellW) % cellW;
+  const offsetY = ((screenOrigin.y % cellH) + cellH) % cellH;
   
   return {
     backgroundImage: `
