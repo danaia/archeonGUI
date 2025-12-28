@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("fs:readPackageJson", dirPath),
   checkDirExists: (dirPath) =>
     ipcRenderer.invoke("fs:checkDirExists", dirPath),
+  fileExists: (filePath) =>
+    ipcRenderer.invoke("fs:fileExists", filePath),
 
   // ============ RULES TEMPLATES ============
   copyRuleTemplates: (files, targetDir) =>

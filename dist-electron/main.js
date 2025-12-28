@@ -627,6 +627,13 @@ p.handle("fs:checkDirExists", async (a, e) => {
     return !1;
   }
 });
+p.handle("fs:fileExists", async (a, e) => {
+  try {
+    return (await (await import("fs/promises")).stat(e)).isFile();
+  } catch {
+    return !1;
+  }
+});
 p.handle("fs:findClientDir", async (a, e) => {
   const s = await import("fs/promises"), t = await import("path");
   try {

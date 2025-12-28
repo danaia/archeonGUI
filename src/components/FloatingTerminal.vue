@@ -52,6 +52,13 @@ const clientDir = ref(null);
 const devScriptName = ref("dev");
 const isDevServerRunning = ref(false);
 
+// Backend server states
+const isRunningBackendCommand = ref(false);
+const backendServerUrl = ref(null);
+const backendDir = ref(null);
+const backendType = ref(null); // "fastapi", "express", or null
+const isBackendServerRunning = ref(false);
+
 const isExpanded = computed(() => terminalStore.isExpanded);
 
 // Check if project has files/directories (not empty)
@@ -503,6 +510,10 @@ function switchTab(tab) {
     // Initialize terminal for the new tab if not already done
     await initTerminal();
     handleFocus();
+    // Auto-detect backend type when switching to backend tab
+    if (tab === 'backend') {
+      await detectBackendType();
+    }
   });
 }
 
@@ -651,6 +662,318 @@ function handleCheckArcheon() {
 
   // Simply run arc to show help/usage
   window.electronAPI.ptyWrite(tab.ptyId, "arc\n");
+}
+
+// ============================================================
+// Backend Server Detection and Management
+// ============================================================
+
+// Detect backend type by scanning project structure
+async function detectBackendType() {
+  if (!window.electronAPI || !projectStore.projectPath) {
+    return null;
+  }
+
+  try {
+    // Check common backend directory patterns
+    const commonDirs = ["server", "backend", "api", "services"];
+    
+    for (const dir of commonDirs) {
+      const serverPath = `${projectStore.projectPath}/${dir}`;
+      
+      // Check for Python FastAPI indicators
+      const requirementsPath = `${serverPath}/requirements.txt`;
+      const pyprojectPath = `${serverPath}/pyproject.toml`;
+      const setupPath = `${serverPath}/setup.py`;
+      const mainPyPath = `${serverPath}/src/main.py`;
+      const appPyPath = `${serverPath}/app.py`;
+      
+      // Check if requirements.txt exists (Python project)
+      try {
+        const reqCheck = await window.electronAPI.fileExists(requirementsPath);
+        if (reqCheck) {
+          backendDir.value = serverPath;
+          backendType.value = "python";
+          console.log("Detected Python backend at:", serverPath);
+          return "python";
+        }
+      } catch (e) {
+        // Continue checking other indicators
+      }
+      
+      // Check for pyproject.toml (modern Python)
+      try {
+        const pyprojectCheck = await window.electronAPI.fileExists(pyprojectPath);
+        if (pyprojectCheck) {
+          backendDir.value = serverPath;
+          backendType.value = "python";
+          console.log("Detected Python backend (pyproject.toml) at:", serverPath);
+          return "python";
+        }
+      } catch (e) {
+        // Continue checking
+      }
+      
+      // Check for Node.js/Express package.json in backend dir
+      const packageJsonPath = `${serverPath}/package.json`;
+      try {
+        const pkgCheck = await window.electronAPI.fileExists(packageJsonPath);
+        if (pkgCheck) {
+          backendDir.value = serverPath;
+          backendType.value = "nodejs";
+          console.log("Detected Node.js backend at:", serverPath);
+          return "nodejs";
+        }
+      } catch (e) {
+        // Continue checking
+      }
+    }
+    
+    // Also check root directory for Python files
+    try {
+      const reqCheck = await window.electronAPI.fileExists(
+        `${projectStore.projectPath}/requirements.txt`
+      );
+      if (reqCheck) {
+        backendDir.value = projectStore.projectPath;
+        backendType.value = "python";
+        console.log("Detected Python backend in project root");
+        return "python";
+      }
+    } catch (e) {
+      // Ignore
+    }
+    
+    // No backend detected
+    backendType.value = null;
+    backendDir.value = null;
+    return null;
+  } catch (error) {
+    console.error("Error detecting backend type:", error);
+    return null;
+  }
+}
+
+// Parse server URL from backend output
+function parseServerUrlFromOutput(data) {
+  // Clean ANSI codes first
+  const cleanData = data.replace(/\x1b\[[0-9;]*m/g, "");
+
+  // Patterns for FastAPI, Flask, Django
+  const patterns = [
+    /Uvicorn running on\s+(https?:\/\/[^\s]+)/i,
+    /Application startup complete\.\s*.*?\s+(https?:\/\/[^\s]+)/i,
+    /.*?(?:http|https):\/\/([^\s]+)/i,
+    /(https?:\/\/localhost:\d+)/i,
+    /(https?:\/\/127\.0\.0\.1:\d+)/i,
+    /WARNING:.*?Uvicorn running on\s+(https?:\/\/[^\s]+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = cleanData.match(pattern);
+    if (match) {
+      const url = match[1] || match[0];
+      return url.replace(/[\/\s]+$/, "");
+    }
+  }
+  return null;
+}
+
+// Backend: Setup virtual environment for Python
+async function handleBackendSetup() {
+  const tab = currentTerminal.value;
+  if (!window.electronAPI || tab.ptyId === null || !projectStore.projectPath) {
+    tab.instance?.write(
+      "\x1b[31mNo project selected. Open a project first.\x1b[0m\r\n"
+    );
+    return;
+  }
+
+  // Detect backend type if not already done
+  if (!backendType.value) {
+    await detectBackendType();
+  }
+
+  if (backendType.value === "python") {
+    isRunningBackendCommand.value = true;
+    const targetDir = backendDir.value || projectStore.projectPath;
+    
+    // Create venv and activate
+    const setupCommand = `cd "${targetDir}" && python3 -m venv venv && source venv/bin/activate\n`;
+    window.electronAPI.ptyWrite(tab.ptyId, setupCommand);
+    
+    setTimeout(() => {
+      isRunningBackendCommand.value = false;
+    }, 1000);
+  } else if (backendType.value === "nodejs") {
+    isRunningBackendCommand.value = true;
+    const targetDir = backendDir.value || projectStore.projectPath;
+    
+    // Node.js just needs npm install
+    const setupCommand = `cd "${targetDir}" && npm install\n`;
+    window.electronAPI.ptyWrite(tab.ptyId, setupCommand);
+    
+    setTimeout(() => {
+      isRunningBackendCommand.value = false;
+    }, 1000);
+  } else {
+    tab.instance?.write(
+      "\x1b[33mNo backend detected. Looking for Python (requirements.txt) or Node.js (package.json) projects.\x1b[0m\r\n"
+    );
+  }
+}
+
+// Backend: Install dependencies
+async function handleBackendInstall() {
+  const tab = currentTerminal.value;
+  if (!window.electronAPI || tab.ptyId === null || !projectStore.projectPath) {
+    tab.instance?.write(
+      "\x1b[31mNo project selected. Open a project first.\x1b[0m\r\n"
+    );
+    return;
+  }
+
+  // Detect backend type if not already done
+  if (!backendType.value) {
+    await detectBackendType();
+  }
+
+  if (backendType.value === "python") {
+    isRunningBackendCommand.value = true;
+    const targetDir = backendDir.value || projectStore.projectPath;
+    
+    // Install Python dependencies
+    const installCommand = `cd "${targetDir}" && source venv/bin/activate && pip install -r requirements.txt\n`;
+    window.electronAPI.ptyWrite(tab.ptyId, installCommand);
+    
+    setTimeout(() => {
+      isRunningBackendCommand.value = false;
+    }, 1000);
+  } else if (backendType.value === "nodejs") {
+    isRunningBackendCommand.value = true;
+    const targetDir = backendDir.value || projectStore.projectPath;
+    
+    // Install Node.js dependencies
+    const installCommand = `cd "${targetDir}" && npm install\n`;
+    window.electronAPI.ptyWrite(tab.ptyId, installCommand);
+    
+    setTimeout(() => {
+      isRunningBackendCommand.value = false;
+    }, 1000);
+  } else {
+    tab.instance?.write(
+      "\x1b[33mNo backend detected.\x1b[0m\r\n"
+    );
+  }
+}
+
+// Backend: Run the server
+async function handleBackendRun() {
+  const tab = currentTerminal.value;
+  if (!window.electronAPI || tab.ptyId === null || !projectStore.projectPath) {
+    tab.instance?.write(
+      "\x1b[31mNo project selected. Open a project first.\x1b[0m\r\n"
+    );
+    return;
+  }
+
+  // Detect backend type if not already done
+  if (!backendType.value) {
+    await detectBackendType();
+  }
+
+  if (backendType.value === "python") {
+    isRunningBackendCommand.value = true;
+    backendServerUrl.value = null; // Reset URL for new run
+    isBackendServerRunning.value = true;
+
+    const targetDir = backendDir.value || projectStore.projectPath;
+    
+    // Set up listener to capture server URL from output
+    if (tab.cleanupDataListener) {
+      tab.cleanupDataListener();
+    }
+
+    tab.cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
+      if (id === tab.ptyId && tab.instance) {
+        tab.instance.write(data);
+        tab.instance.scrollToBottom();
+
+        // Capture server URL from output
+        const url = parseServerUrlFromOutput(data);
+        if (url) {
+          backendServerUrl.value = url;
+          console.log("Backend server URL captured:", url);
+        }
+      }
+    });
+
+    // Run FastAPI server with uvicorn
+    // Try common entry points: src/main.py, app.py, main.py
+    const runCommand = `cd "${targetDir}" && source venv/bin/activate && uvicorn src.main:app --reload\n`;
+    window.electronAPI.ptyWrite(tab.ptyId, runCommand);
+
+    setTimeout(() => {
+      isRunningBackendCommand.value = false;
+    }, 1000);
+  } else if (backendType.value === "nodejs") {
+    isRunningBackendCommand.value = true;
+    backendServerUrl.value = null; // Reset URL for new run
+    isBackendServerRunning.value = true;
+
+    const targetDir = backendDir.value || projectStore.projectPath;
+    
+    // Set up listener to capture server URL from output
+    if (tab.cleanupDataListener) {
+      tab.cleanupDataListener();
+    }
+
+    tab.cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
+      if (id === tab.ptyId && tab.instance) {
+        tab.instance.write(data);
+        tab.instance.scrollToBottom();
+
+        // Capture server URL from output
+        const url = parseServerUrlFromOutput(data);
+        if (url) {
+          backendServerUrl.value = url;
+          console.log("Backend server URL captured:", url);
+        }
+      }
+    });
+
+    // Run Node.js server (assuming dev script or nodemon)
+    const runCommand = `cd "${targetDir}" && npm start\n`;
+    window.electronAPI.ptyWrite(tab.ptyId, runCommand);
+
+    setTimeout(() => {
+      isRunningBackendCommand.value = false;
+    }, 1000);
+  } else {
+    tab.instance?.write(
+      "\x1b[33mNo backend detected. Run 'Setup' first to initialize backend.\x1b[0m\r\n"
+    );
+  }
+}
+
+// Backend: Preview/open server in browser
+async function handleBackendPreview() {
+  if (!backendServerUrl.value) {
+    const tab = currentTerminal.value;
+    tab.instance?.write(
+      "\x1b[33mNo backend server URL detected yet. Run the server first.\x1b[0m\r\n"
+    );
+    return;
+  }
+
+  const url = backendServerUrl.value;
+  console.log("Opening backend server URL:", url);
+
+  if (window.electronAPI?.openExternal) {
+    await window.electronAPI.openExternal(url);
+  } else {
+    window.open(url, "_blank");
+  }
 }
 
 // Watch for expansion to initialize terminal
@@ -862,10 +1185,41 @@ onUnmounted(() => {
 
         <!-- Backend Commands -->
         <template v-if="activeTab === 'backend'">
-          <div class="text-xs text-ui-textMuted text-center px-1 py-2">Backend</div>
-          <div class="text-xs text-ui-textMuted text-center px-1">commands</div>
-          <div class="text-xs text-ui-textMuted text-center px-1">coming</div>
-          <div class="text-xs text-ui-textMuted text-center px-1">soon</div>
+          <button
+            @click.stop="handleBackendSetup"
+            :disabled="isRunningBackendCommand || !hasProjectContent"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-gray-700/20 text-gray-300 hover:bg-gray-700/30 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-500/30"
+            :title="backendType ? `Setup ${backendType}` : 'Setup backend'"
+          >
+            Setup
+          </button>
+          <button
+            @click.stop="handleBackendInstall"
+            :disabled="isRunningBackendCommand || !hasProjectContent"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-gray-700/20 text-gray-300 hover:bg-gray-700/30 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-500/30"
+            :title="`Install ${backendType || 'backend'} dependencies`"
+          >
+            Install
+          </button>
+          <button
+            @click.stop="handleBackendRun"
+            :disabled="isRunningBackendCommand || !hasProjectContent"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-gray-700/20 text-gray-300 hover:bg-gray-700/30 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-500/30"
+            :title="`Run ${backendType || 'backend'} server`"
+          >
+            Run
+          </button>
+          <button
+            @click.stop="handleBackendPreview"
+            :disabled="!backendServerUrl"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-gray-700/20 text-gray-300 hover:bg-gray-700/30 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-500/30"
+            :title="backendServerUrl ? `Open ${backendServerUrl}` : 'Run backend server first'"
+          >
+            Preview
+          </button>
+          <div class="text-xs text-ui-textMuted text-center px-1 py-2 mt-2" v-if="backendType">
+            {{ backendType === 'python' ? '🐍 Python' : '⚡ Node.js' }}
+          </div>
         </template>
       </div>
 
