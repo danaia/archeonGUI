@@ -283,6 +283,25 @@ ipcMain.handle("shell:openExternal", async (event, url) => {
   }
 });
 
+// Open a file in the default code editor
+ipcMain.handle("shell:openFile", async (event, projectPath, filePath) => {
+  try {
+    const fullPath = path.join(projectPath, filePath);
+    
+    // Try to open with code command first (VSCode)
+    try {
+      await execAsync(`code "${fullPath}"`);
+      return { success: true };
+    } catch (err) {
+      // Fallback: use shell.openPath which opens with default application
+      await shell.openPath(fullPath);
+      return { success: true };
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // Load available shapes from Archeon's architectures directory
 ipcMain.handle("archeon:getShapes", async () => {
   const fs = await import("fs/promises");

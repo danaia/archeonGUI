@@ -913,6 +913,8 @@ onUnmounted(() => {
     <div
       v-if="['validating', 'valid', 'invalid'].includes(uiStore.validationStatus.status)"
       class="absolute top-[72px] right-3"
+      @mousedown.stop
+      @click.stop
     >
       <Tooltip position="bottom" maxWidth="480px" :offsetX="-50">
         <div

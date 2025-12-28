@@ -855,6 +855,16 @@ export const useTileStore = defineStore("tiles", () => {
 
       const chainDef = `@${version} ${chainParts.join("")}`;
       lines.push(chainDef);
+
+      // Add intent comments for each tile in the chain
+      for (const tile of tilesInChain) {
+        if (tile.intent && tile.intent.trim().length > 0) {
+          // Format the intent as a comment with the glyph label
+          lines.push(`# ${tile.label}: ${tile.intent}`);
+        }
+      }
+
+      lines.push(""); // Blank line between chains
     }
 
     return lines.join("\n") + "\n";

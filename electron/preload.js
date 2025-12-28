@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   exec: (command, options) => ipcRenderer.invoke("shell:exec", command, options),
   openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
   checkCommand: (command) => ipcRenderer.invoke("shell:checkCommand", command),
+  openFile: (projectPath, filePath) => ipcRenderer.invoke("shell:openFile", projectPath, filePath),
   
   // ============ ARCHEON SHAPES ============
   getShapes: () => ipcRenderer.invoke("archeon:getShapes"),
