@@ -225,6 +225,51 @@ onMounted(() => {
                     </div>
                   </div>
 
+                  <!-- CLI Method -->
+                  <div
+                    @click="selectMethod('cli')"
+                    :class="[
+                      'relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200',
+                      'hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]',
+                      installMethod === 'cli'
+                        ? 'border-gray-600 bg-gray-600/10 shadow-md'
+                        : 'border-ui-border bg-ui-bg hover:border-ui-textMuted/50',
+                    ]"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div class="flex-1">
+                        <h3 class="font-bold text-ui-text text-sm mb-1">
+                          Install CLI
+                        </h3>
+                        <p class="text-xs text-ui-textMuted leading-relaxed">
+                          {{
+                            isCLIInstalled
+                              ? "CLI already installed. Reinstall or update."
+                              : "Install Archeon CLI globally via pip."
+                          }}
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      v-if="installMethod === 'cli'"
+                      class="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center"
+                    >
+                      <svg
+                        class="w-3 h-3 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+
                   <!-- Shapes Method (only if CLI installed) -->
                   <div
                     @click="isCLIInstalled ? selectMethod('shapes') : null"
@@ -289,61 +334,16 @@ onMounted(() => {
                     <!-- CLI Required Badge -->
                     <div
                       v-else-if="!isCLIInstalled"
-                      class="absolute -top-2 -right-2 px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-xs text-yellow-400"
+                      class="absolute -top-2 -right-2 px-2 py-0.5 bg-yellow-800 border border-yellow-800 rounded-full text-xs text-white"
                     >
                       CLI Required
                     </div>
                     <!-- CLI Installed Badge -->
                     <div
                       v-else
-                      class="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500/20 border border-green-500/30 rounded-full text-xs text-green-400"
+                      class="absolute -top-2 -right-2 px-2 py-0.5 bg-green-900/80 border border-green-500/30 rounded-full text-xs text-green-400"
                     >
                       CLI Ready
-                    </div>
-                  </div>
-
-                  <!-- CLI Method -->
-                  <div
-                    @click="selectMethod('cli')"
-                    :class="[
-                      'relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200',
-                      'hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]',
-                      installMethod === 'cli'
-                        ? 'border-gray-600 bg-gray-600/10 shadow-md'
-                        : 'border-ui-border bg-ui-bg hover:border-ui-textMuted/50',
-                    ]"
-                  >
-                    <div class="flex items-start gap-3">
-                      <div class="flex-1">
-                        <h3 class="font-bold text-ui-text text-sm mb-1">
-                          Install CLI
-                        </h3>
-                        <p class="text-xs text-ui-textMuted leading-relaxed">
-                          {{
-                            isCLIInstalled
-                              ? "CLI already installed. Reinstall or update."
-                              : "Install Archeon CLI globally via pip."
-                          }}
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      v-if="installMethod === 'cli'"
-                      class="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center"
-                    >
-                      <svg
-                        class="w-3 h-3 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
                     </div>
                   </div>
                 </div>
@@ -750,10 +750,10 @@ onMounted(() => {
                   @click="applySetup"
                   :disabled="!selectedIDE || isSettingUp"
                   :class="[
-                    'flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-medium transition-all flex items-center border border-grey-600 justify-center gap-2',
+                    'flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-medium transition-all flex items-center justify-center gap-2',
                     selectedIDE && !isSettingUp
-                      ? 'bg-grey-600 hover:bg-grey-700 active:bg-grey-800 shadow-md hover:shadow-lg '
-                      : 'bg-gray-400 cursor-not-allowed text-black font-bold',
+                      ? 'bg-grey-800 hover:bg-grey-700 active:bg-grey-800 shadow-md hover:shadow-lg '
+                      : 'bg-gray-800 cursor-not-allowed text-black font-bold',
                   ]"
                 >
                   <span v-if="isSettingUp" class="animate-spin">
