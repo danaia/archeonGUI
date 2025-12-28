@@ -6,6 +6,7 @@ import {
   FloatingTerminal,
   ToastContainer,
   SetupModal,
+  GlyphEditModal,
 } from "./components";
 import {
   useTerminalStore,
@@ -343,6 +344,9 @@ onUnmounted(() => {
 
     <!-- Setup Modal -->
     <SetupModal />
+
+    <!-- Glyph Edit Modal -->
+    <GlyphEditModal />
   </div>
 </template>
 

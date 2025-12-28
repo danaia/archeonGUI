@@ -238,16 +238,11 @@ function handleMouseDown(e) {
     const worldPos = canvasStore.screenToWorld(e.clientX, e.clientY);
     const gridPos = canvasStore.worldToGrid(worldPos.x, worldPos.y);
 
-    // Check if clicking on empty space - start selection box
+    // Check if clicking on empty tile
     if (!tileStore.hasTile(gridPos.col, gridPos.row)) {
-      // Clear previous selections
-      tileStore.deselectTile();
-      tileStore.clearMultiSelection();
-      relationshipStore.deselectRelationship();
-      uiStore.closeDrawer();
-
-      // Start selection box
-      startSelection(e.clientX, e.clientY);
+      // Open glyph edit modal for creating a new tile
+      uiStore.openGlyphEditModal(null, { col: gridPos.col, row: gridPos.row });
+      return;
     }
   }
 }

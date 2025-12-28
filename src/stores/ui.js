@@ -10,8 +10,13 @@ export const useUIStore = defineStore("ui", () => {
   const focusedElement = ref(null); // 'canvas' | 'terminal' | 'drawer' | null
 
   // Modal state
-  const activeModal = ref(null); // null | 'setup'
+  const activeModal = ref(null); // null | 'setup' | 'glyphEdit'
   const isSetupModalOpen = computed(() => activeModal.value === 'setup');
+  const isGlyphEditModalOpen = computed(() => activeModal.value === 'glyphEdit');
+  
+  // Glyph edit modal state
+  const editingTile = ref(null); // Tile being edited (null if creating new)
+  const editingGridPosition = ref(null); // Grid position for new tile creation
 
   // Global keyboard state
   const pressedKeys = ref(new Set());
@@ -213,6 +218,18 @@ export const useUIStore = defineStore("ui", () => {
     activeModal.value = null;
   }
 
+  function openGlyphEditModal(tile = null, gridPosition = null) {
+    editingTile.value = tile;
+    editingGridPosition.value = gridPosition;
+    activeModal.value = 'glyphEdit';
+  }
+
+  function closeGlyphEditModal() {
+    editingTile.value = null;
+    editingGridPosition.value = null;
+    activeModal.value = null;
+  }
+
   return {
     // State
     isDrawerOpen,
@@ -225,10 +242,13 @@ export const useUIStore = defineStore("ui", () => {
     maxDrawerWidth,
     toasts,
     validationStatus,
+    editingTile,
+    editingGridPosition,
 
     // Computed
     canvasInteractionsEnabled,
     isSetupModalOpen,
+    isGlyphEditModalOpen,
 
     // Methods
     openDrawer,
@@ -248,5 +268,7 @@ export const useUIStore = defineStore("ui", () => {
     resetValidation,
     openSetupModal,
     closeSetupModal,
+    openGlyphEditModal,
+    closeGlyphEditModal,
   };
 });

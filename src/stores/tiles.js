@@ -869,6 +869,131 @@ export const useTileStore = defineStore("tiles", () => {
   }
 
   /**
+   * Create a new tile from the modal editor
+   * @param {number} col - Column position
+   * @param {number} row - Row position
+   * @param {string} glyphType - Glyph type (e.g., "CMP", "API")
+   * @param {string} name - Tile name
+   * @param {string} intent - Intent description
+   * @returns {Object} - Created tile
+   */
+  async function createTileFromModal(col, row, glyphType, name, intent) {
+    const label = `${glyphType}:${name}`;
+    const glyphInfo = GLYPH_TYPES[glyphType];
+
+    if (!glyphInfo) {
+      throw new Error(`Invalid glyph type: ${glyphType}`);
+    }
+
+    // Check if tile already exists at this position
+    if (hasTile(col, row)) {
+      throw new Error(`Tile already exists at position (${col}, ${row})`);
+    }
+
+    // Create tile with chainIndex set to row for new tiles
+    const tile = {
+      col,
+      row,
+      chainIndex: row, // New tiles use row as chainIndex
+      id: getTileKey(col, row),
+      glyphType,
+      name,
+      label,
+      typeInfo: glyphInfo,
+      file: null,
+      intent,
+      chain: null,
+      sections: [],
+      state: GLYPH_STATES.PENDING,
+      color: glyphInfo.color,
+      icon: glyphInfo.icon,
+      layer: glyphInfo.layer,
+      bgColor: glyphInfo.bgColor,
+    };
+
+    tiles.value.set(tile.id, tile);
+
+    // Create or update chain metadata for this row
+    if (!chains.value.has(row)) {
+      createChain(row, {
+        version: `v${row + 1}`,
+        raw: label,
+        glyphCount: 1,
+        edges: [],
+      });
+    }
+
+    return tile;
+  }
+
+  /**
+   * Update an existing tile's glyph type, name, and intent
+   * @param {number} col - Column position
+   * @param {number} row - Row position
+   * @param {string} glyphType - New glyph type
+   * @param {string} name - New name
+   * @param {string} intent - New intent
+   * @returns {Object} - Updated tile
+   */
+  async function updateTileGlyph(col, row, glyphType, name, intent) {
+    const tile = getTile(col, row);
+    if (!tile) {
+      throw new Error(`No tile found at position (${col}, ${row})`);
+    }
+
+    const glyphInfo = GLYPH_TYPES[glyphType];
+    if (!glyphInfo) {
+      throw new Error(`Invalid glyph type: ${glyphType}`);
+    }
+
+    // Update tile properties
+    tile.glyphType = glyphType;
+    tile.name = name;
+    tile.label = `${glyphType}:${name}`;
+    tile.intent = intent;
+    tile.typeInfo = glyphInfo;
+    tile.color = glyphInfo.color;
+    tile.icon = glyphInfo.icon;
+    tile.layer = glyphInfo.layer;
+    tile.bgColor = glyphInfo.bgColor;
+
+    return tile;
+  }
+
+  /**
+   * Save current tiles to ARCHEON.arcon file
+   * @param {string} projectPath - Project root path
+   */
+  async function saveToArcon(projectPath) {
+    if (!projectPath) {
+      throw new Error("No project path provided");
+    }
+
+    // Import relationship store to get edge types
+    const { useRelationshipStore } = await import("./relationships.js");
+    const relationshipStore = useRelationshipStore();
+
+    // Generate .arcon content
+    const content = generateArconContent(relationshipStore);
+
+    // Write to file via Electron API
+    if (!window.electronAPI?.archeonWriteArcon) {
+      throw new Error("Electron API not available");
+    }
+
+    const result = await window.electronAPI.archeonWriteArcon(
+      projectPath,
+      content
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to write ARCHEON.arcon");
+    }
+
+    return result;
+  }
+
+  /**
    * Save current tile positions and layout to localStorage
    * Uses label + chainIndex as key to handle duplicate labels across chains
    * @param {string} projectPath - Project root path (used as storage key)
@@ -1103,6 +1228,10 @@ export const useTileStore = defineStore("tiles", () => {
     generateArconContent,
     clearTiles,
     initLoginFlowDemo,
+    // Modal-specific methods
+    createTileFromModal,
+    updateTileGlyph,
+    saveToArcon,
     // Multi-selection
     addToSelection,
     removeFromSelection,
