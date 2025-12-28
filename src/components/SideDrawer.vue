@@ -343,10 +343,15 @@ async function openFileInEditor(filePath) {
 }
 
 function handleClose() {
-  destroyMonacoEditor();
+  // Close drawer first
   uiStore.closeDrawer();
+  
+  // Then deselect to clear state
   tileStore.deselectTile();
   relationshipStore.deselectRelationship();
+  
+  // Clean up editor
+  destroyMonacoEditor();
 }
 
 function onFocusIn() {
@@ -394,22 +399,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Transition
-    enter-active-class="transition-transform duration-300 ease-out"
-    enter-from-class="translate-x-full"
-    enter-to-class="translate-x-0"
-    leave-active-class="transition-transform duration-200 ease-in"
-    leave-from-class="translate-x-0"
-    leave-to-class="translate-x-full"
-  >
-    <div
-      v-if="isOpen"
-      class="fixed top-0 right-0 h-full z-40 flex"
-      :style="{ width: uiStore.drawerWidth + 'px' }"
-      :class="{ 'select-none': isResizing }"
-      @focusin="onFocusIn"
-      @focusout="onFocusOut"
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition-transform duration-300 ease-out"
+      enter-from-class="translate-x-full"
+      enter-to-class="translate-x-0"
+      leave-active-class="transition-transform duration-200 ease-in"
+      leave-from-class="translate-x-0"
+      leave-to-class="translate-x-full"
     >
+      <div
+        v-if="isOpen"
+        class="fixed top-0 right-0 h-full z-50 flex"
+        :style="{ width: uiStore.drawerWidth + 'px' }"
+        :class="{ 'select-none': isResizing }"
+        @focusin="onFocusIn"
+        @focusout="onFocusOut"
+      >
       <!-- Resize Handle (Left Edge) -->
       <div
         class="absolute top-0 bottom-0 -left-1 w-2 cursor-ew-resize z-50 hover:bg-green-500/20 transition-colors"
@@ -429,7 +435,7 @@ onUnmounted(() => {
             }}
           </h2>
           <button
-            @click="handleClose"
+            @click.stop="handleClose"
             class="p-2 rounded-lg hover:bg-ui-bgLight text-ui-textMuted hover:text-ui-text transition-colors"
           >
             <svg
@@ -1022,5 +1028,6 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
