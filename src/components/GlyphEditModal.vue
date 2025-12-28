@@ -252,7 +252,7 @@ function handleBackdropClick() {
                   placeholder="e.g., LoginForm, Auth, UserAPI"
                   class="w-full px-3 py-2 bg-ui-bgLight border border-ui-border rounded-lg text-ui-text placeholder:text-ui-textMuted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   :disabled="isSaving"
-                  @keydown.enter="handleSave"
+                  @keydown.stop="(e) => { if (e.key === 'Enter') handleSave(); }"
                 />
               </div>
 
@@ -267,6 +267,8 @@ function handleBackdropClick() {
                   rows="4"
                   class="w-full px-3 py-2 bg-ui-bgLight border border-ui-border rounded-lg text-ui-text placeholder:text-ui-textMuted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   :disabled="isSaving"
+                  @keydown.stop
+                  @keyup.stop
                 ></textarea>
               </div>
             </div>

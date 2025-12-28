@@ -581,6 +581,32 @@ ipcMain.handle("fs:readPackageJson", async (event, dirPath) => {
 
 // ============ ARCHEON VALIDATION ============
 
+// Filter for non-strict validation - ignore certain messages
+function filterValidationMessages(errors, warnings) {
+  // Messages to ignore in non-strict mode
+  const ignoredErrorPatterns = [
+    "boundary.vDataFlow", // Views in data flow are allowed
+  ];
+
+  const ignoredWarningPatterns = [
+    "chain.noOutput", // Chains don't need to end with OUT: or ERR:
+    "api.noErrorPath", // APIs don't need explicit error paths
+  ];
+
+  const filtered = {
+    errors: errors.filter(
+      (err) =>
+        !ignoredErrorPatterns.some((pattern) => err.includes(pattern))
+    ),
+    warnings: warnings.filter(
+      (warn) =>
+        !ignoredWarningPatterns.some((pattern) => warn.includes(pattern))
+    ),
+  };
+
+  return filtered;
+}
+
 ipcMain.handle("archeon:validate", async (event, projectPath) => {
   if (!projectPath) {
     return { success: false, error: "No project path provided" };
@@ -603,22 +629,30 @@ ipcMain.handle("archeon:validate", async (event, projectPath) => {
     const glyphsMatch = output.match(/Glyphs:\s*(\d+)/);
 
     // Extract errors if any
-    const errors = [];
+    let errors = [];
     const errorMatches = output.matchAll(/•\s*ERR:[^\n]+/g);
     for (const match of errorMatches) {
       errors.push(match[0].replace("• ", ""));
     }
 
     // Extract warnings if any
-    const warnings = [];
+    let warnings = [];
     const warnMatches = output.matchAll(/•\s*WARN:[^\n]+/g);
     for (const match of warnMatches) {
       warnings.push(match[0].replace("• ", ""));
     }
 
+    // Filter to ignore non-critical validation messages
+    const filtered = filterValidationMessages(errors, warnings);
+    errors = filtered.errors;
+    warnings = filtered.warnings;
+
+    // Re-determine validity after filtering
+    const isValidAfterFilter = errors.length === 0;
+
     return {
       success: true,
-      isValid,
+      isValid: isValidAfterFilter,
       chains: chainsMatch ? parseInt(chainsMatch[1]) : 0,
       glyphs: glyphsMatch ? parseInt(glyphsMatch[1]) : 0,
       errors,
@@ -631,18 +665,26 @@ ipcMain.handle("archeon:validate", async (event, projectPath) => {
     const isValid = false;
 
     // Extract errors
-    const errors = [];
+    let errors = [];
     const errorMatches = output.matchAll(/•\s*ERR:[^\n]+/g);
     for (const match of errorMatches) {
       errors.push(match[0].replace("• ", ""));
     }
 
     // Extract warnings
-    const warnings = [];
+    let warnings = [];
     const warnMatches = output.matchAll(/•\s*WARN:[^\n]+/g);
     for (const match of warnMatches) {
       warnings.push(match[0].replace("• ", ""));
     }
+
+    // Filter to ignore non-critical validation messages
+    const filtered = filterValidationMessages(errors, warnings);
+    errors = filtered.errors;
+    warnings = filtered.warnings;
+
+    // Re-determine validity after filtering
+    const isValidAfterFilter = errors.length === 0;
 
     // Check if arc command exists
     if (
@@ -657,7 +699,7 @@ ipcMain.handle("archeon:validate", async (event, projectPath) => {
 
     return {
       success: true,
-      isValid,
+      isValid: isValidAfterFilter,
       errors,
       warnings,
       output,
