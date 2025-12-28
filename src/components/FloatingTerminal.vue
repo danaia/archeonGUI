@@ -11,7 +11,15 @@ const terminalStore = useTerminalStore();
 const uiStore = useUIStore();
 const projectStore = useProjectStore();
 
-const terminalRef = ref(null);
+// Tab management
+const activeTab = ref("frontend"); // "frontend" or "backend"
+const terminals = ref({
+  frontend: { instance: null, fitAddon: null, ptyId: null, cleanupDataListener: null, cleanupExitListener: null, initialized: false },
+  backend: { instance: null, fitAddon: null, ptyId: null, cleanupDataListener: null, cleanupExitListener: null, initialized: false },
+});
+
+const frontendTerminalRef = ref(null);
+const backendTerminalRef = ref(null);
 const terminalContainerRef = ref(null);
 
 // Dragging state
@@ -28,11 +36,14 @@ const resizeStartPosition = ref({ x: 0, y: 0 });
 // Panel position (bottom-left default, stored in pixels from bottom-left)
 const panelPosition = ref({ x: 16, y: 16 });
 
-let terminal = null;
-let fitAddon = null;
-let ptyId = null;
-let cleanupDataListener = null;
-let cleanupExitListener = null;
+// Get current tab's terminal data
+const currentTerminal = computed(() => terminals.value[activeTab.value]);
+
+// Get current terminal ref based on active tab
+const currentTerminalRef = computed(() => 
+  activeTab.value === 'frontend' ? frontendTerminalRef.value : backendTerminalRef.value
+);
+
 
 // NPM command states
 const isRunningNpmCommand = ref(false);
@@ -64,23 +75,26 @@ const panelStyle = computed(() => ({
 }));
 
 async function initTerminal() {
-  if (!terminalRef.value) return;
+  const termRef = currentTerminalRef.value;
+  if (!termRef) return;
 
-  // If terminal already exists, just re-fit and scroll to bottom
-  if (terminal) {
+  const tab = currentTerminal.value;
+
+  // If terminal already exists and is initialized, just re-fit and scroll to bottom
+  if (tab.instance && tab.initialized) {
     await nextTick();
     try {
-      fitAddon?.fit();
+      tab.fitAddon?.fit();
       resizePty();
-      terminal.scrollToBottom();
-      terminal.focus();
+      tab.instance.scrollToBottom();
+      tab.instance.focus();
     } catch (e) {
       console.warn("Terminal re-init skipped:", e.message);
     }
     return;
   }
 
-  terminal = new Terminal({
+  const terminal = new Terminal({
     theme: {
       background: "#0d0d1a",
       foreground: "#e2e8f0",
@@ -114,9 +128,14 @@ async function initTerminal() {
     scrollback: 5000,
   });
 
-  fitAddon = new FitAddon();
+  const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
-  terminal.open(terminalRef.value);
+  terminal.open(termRef);
+
+  // Store terminal instance
+  tab.instance = terminal;
+  tab.fitAddon = fitAddon;
+  tab.initialized = true;
 
   // Initial fit
   await nextTick();
@@ -138,8 +157,8 @@ async function initTerminal() {
     // Cmd+V (Mac) or Ctrl+V (Windows/Linux) - paste from clipboard
     if ((event.metaKey || event.ctrlKey) && event.key === 'v' && event.type === 'keydown') {
       navigator.clipboard.readText().then((text) => {
-        if (text && ptyId !== null && window.electronAPI) {
-          window.electronAPI.ptyWrite(ptyId, text);
+        if (text && tab.ptyId !== null && window.electronAPI) {
+          window.electronAPI.ptyWrite(tab.ptyId, text);
         }
       });
       return false; // Prevent default
@@ -177,87 +196,110 @@ async function initTerminal() {
 async function spawnPty() {
   if (!window.electronAPI) return;
 
+  const tab = currentTerminal.value;
+
   // Get cwd from projectStore, or fall back to localStorage directly
   const savedPath = localStorage.getItem("archeon:lastProjectPath");
   const cwd = projectStore.projectPath || savedPath || undefined;
-  const { cols, rows } = fitAddon.proposeDimensions() || { cols: 80, rows: 24 };
+  const { cols, rows } = tab.fitAddon.proposeDimensions() || { cols: 80, rows: 24 };
 
   try {
     const result = await window.electronAPI.ptySpawn({ cwd, cols, rows });
-    ptyId = result.id;
+    tab.ptyId = result.id;
     // Also store in terminal store so SetupModal can access it
-    terminalStore.setPtyId(ptyId);
+    terminalStore.setPtyId(tab.ptyId);
+
+    // Clean up old listeners if they exist
+    if (tab.cleanupDataListener) {
+      tab.cleanupDataListener();
+      tab.cleanupDataListener = null;
+    }
+    if (tab.cleanupExitListener) {
+      tab.cleanupExitListener();
+      tab.cleanupExitListener = null;
+    }
 
     // Listen for PTY data
-    cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
-      if (id === ptyId && terminal) {
-        terminal.write(data);
+    tab.cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
+      if (id === tab.ptyId && tab.instance) {
+        tab.instance.write(data);
         // Auto-scroll to bottom to keep cursor visible
-        terminal.scrollToBottom();
+        tab.instance.scrollToBottom();
       }
     });
 
     // Listen for PTY exit
-    cleanupExitListener = window.electronAPI.onPtyExit(({ id, exitCode }) => {
-      if (id === ptyId) {
-        terminal.write(
+    tab.cleanupExitListener = window.electronAPI.onPtyExit(({ id, exitCode }) => {
+      if (id === tab.ptyId) {
+        tab.instance.write(
           `\r\n\x1b[33mProcess exited with code ${exitCode}\x1b[0m\r\n`
         );
-        ptyId = null;
+        tab.ptyId = null;
         terminalStore.setPtyId(null);
       }
     });
 
     // Send terminal input to PTY
-    terminal.onData((data) => {
-      if (ptyId !== null) {
-        window.electronAPI.ptyWrite(ptyId, data);
+    tab.instance.onData((data) => {
+      if (tab.ptyId !== null) {
+        window.electronAPI.ptyWrite(tab.ptyId, data);
       }
     });
   } catch (error) {
-    terminal.write(
+    tab.instance.write(
       `\x1b[31mFailed to spawn terminal: ${error.message}\x1b[0m\r\n`
     );
   }
 }
 
-function destroyTerminal() {
-  // Kill PTY process
-  if (ptyId !== null && window.electronAPI) {
-    window.electronAPI.ptyKill(ptyId);
-    ptyId = null;
-    terminalStore.setPtyId(null);
-  }
+function destroyTerminal(tabName = null) {
+  // If no specific tab specified, destroy all terminals
+  const tabsToDestroy = tabName ? [tabName] : ['frontend', 'backend'];
+  
+  for (const name of tabsToDestroy) {
+    const tab = terminals.value[name];
+    if (!tab) continue;
+    
+    // Kill PTY process
+    if (tab.ptyId !== null && window.electronAPI) {
+      window.electronAPI.ptyKill(tab.ptyId);
+      tab.ptyId = null;
+    }
 
-  // Cleanup listeners
-  if (cleanupDataListener) {
-    cleanupDataListener();
-    cleanupDataListener = null;
-  }
-  if (cleanupExitListener) {
-    cleanupExitListener();
-    cleanupExitListener = null;
-  }
+    // Cleanup listeners
+    if (tab.cleanupDataListener) {
+      tab.cleanupDataListener();
+      tab.cleanupDataListener = null;
+    }
+    if (tab.cleanupExitListener) {
+      tab.cleanupExitListener();
+      tab.cleanupExitListener = null;
+    }
 
-  // Dispose terminal
-  if (terminal) {
-    terminal.dispose();
-    terminal = null;
-    fitAddon = null;
+    // Dispose terminal
+    if (tab.instance) {
+      tab.instance.dispose();
+      tab.instance = null;
+      tab.fitAddon = null;
+      tab.initialized = false;
+    }
   }
+  
+  terminalStore.setPtyId(null);
 }
 
 // Resize PTY when terminal dimensions change
 function resizePty() {
-  if (!fitAddon || !window.electronAPI || ptyId === null || !terminal) return;
+  const tab = currentTerminal.value;
+  if (!tab.fitAddon || !window.electronAPI || tab.ptyId === null || !tab.instance) return;
 
   try {
-    const dims = fitAddon.proposeDimensions();
+    const dims = tab.fitAddon.proposeDimensions();
     // Only resize if we have valid positive dimensions
     if (dims && dims.cols > 0 && dims.rows > 0) {
-      window.electronAPI.ptyResize(ptyId, dims.cols, dims.rows);
+      window.electronAPI.ptyResize(tab.ptyId, dims.cols, dims.rows);
       // Scroll to bottom after resize to keep cursor visible
-      terminal.scrollToBottom();
+      tab.instance.scrollToBottom();
     }
   } catch (e) {
     // Ignore resize errors when terminal isn't ready
@@ -408,7 +450,9 @@ function handleToggle() {
 function handleFocus() {
   terminalStore.setFocus(true);
   uiStore.setFocus("terminal");
-  terminal?.focus();
+  // Focus the active tab's terminal instance
+  const tab = terminals.value[activeTab.value];
+  tab?.instance?.focus();
 }
 
 function handleBlur() {
@@ -450,6 +494,18 @@ async function findClientDirectory() {
   return null;
 }
 
+// Switch to a different tab
+function switchTab(tab) {
+  if (activeTab.value === tab) return;
+  
+  activeTab.value = tab;
+  nextTick(async () => {
+    // Initialize terminal for the new tab if not already done
+    await initTerminal();
+    handleFocus();
+  });
+}
+
 // Parse terminal output to extract URL
 function parseUrlFromOutput(data) {
   // Common patterns for dev server URLs - clean ANSI codes first
@@ -479,8 +535,9 @@ function parseUrlFromOutput(data) {
 }
 
 async function handleNpmInstall() {
-  if (!window.electronAPI || ptyId === null || !projectStore.projectPath) {
-    terminal?.write(
+  const tab = currentTerminal.value;
+  if (!window.electronAPI || tab.ptyId === null || !projectStore.projectPath) {
+    tab.instance?.write(
       "\x1b[31mNo project selected. Open a project first.\x1b[0m\r\n"
     );
     return;
@@ -491,7 +548,7 @@ async function handleNpmInstall() {
   // Find the client directory
   const targetDir = await findClientDirectory();
   if (!targetDir) {
-    terminal?.write(
+    tab.instance?.write(
       "\x1b[31mNo package.json found in project or client directory.\x1b[0m\r\n"
     );
     isRunningNpmCommand.value = false;
@@ -500,7 +557,7 @@ async function handleNpmInstall() {
 
   // cd to client directory and run npm install
   const fullCommand = `cd "${targetDir}" && npm install\n`;
-  window.electronAPI.ptyWrite(ptyId, fullCommand);
+  window.electronAPI.ptyWrite(tab.ptyId, fullCommand);
 
   // Reset running state after a short delay
   setTimeout(() => {
@@ -509,8 +566,9 @@ async function handleNpmInstall() {
 }
 
 async function handleNpmRun() {
-  if (!window.electronAPI || ptyId === null || !projectStore.projectPath) {
-    terminal?.write(
+  const tab = currentTerminal.value;
+  if (!window.electronAPI || tab.ptyId === null || !projectStore.projectPath) {
+    tab.instance?.write(
       "\x1b[31mNo project selected. Open a project first.\x1b[0m\r\n"
     );
     return;
@@ -523,7 +581,7 @@ async function handleNpmRun() {
   // Find the client directory
   const targetDir = await findClientDirectory();
   if (!targetDir) {
-    terminal?.write(
+    tab.instance?.write(
       "\x1b[31mNo package.json found in project or client directory.\x1b[0m\r\n"
     );
     isRunningNpmCommand.value = false;
@@ -532,14 +590,14 @@ async function handleNpmRun() {
   }
 
   // Replace the data listener with one that continuously monitors for URL
-  if (cleanupDataListener) {
-    cleanupDataListener();
+  if (tab.cleanupDataListener) {
+    tab.cleanupDataListener();
   }
 
-  cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
-    if (id === ptyId && terminal) {
-      terminal.write(data);
-      terminal.scrollToBottom();
+  tab.cleanupDataListener = window.electronAPI.onPtyData(({ id, data }) => {
+    if (id === tab.ptyId && tab.instance) {
+      tab.instance.write(data);
+      tab.instance.scrollToBottom();
 
       // Always try to capture/update URL from output (port may change on restart)
       const url = parseUrlFromOutput(data);
@@ -552,7 +610,7 @@ async function handleNpmRun() {
 
   // cd to client directory and run the dev script
   const fullCommand = `cd "${targetDir}" && npm run ${devScriptName.value}\n`;
-  window.electronAPI.ptyWrite(ptyId, fullCommand);
+  window.electronAPI.ptyWrite(tab.ptyId, fullCommand);
 
   // Reset running state after a short delay (command continues in background)
   setTimeout(() => {
@@ -562,7 +620,8 @@ async function handleNpmRun() {
 
 async function handleNpmPreview() {
   if (!devServerUrl.value) {
-    terminal?.write(
+    const tab = currentTerminal.value;
+    tab.instance?.write(
       "\x1b[33mNo dev server URL detected yet. Run the dev server first.\x1b[0m\r\n"
     );
     return;
@@ -582,15 +641,16 @@ async function handleNpmPreview() {
 
 // Check Archeon installation by running arc command
 function handleCheckArcheon() {
-  if (!window.electronAPI || ptyId === null) {
-    terminal?.write(
+  const tab = currentTerminal.value;
+  if (!window.electronAPI || tab.ptyId === null) {
+    tab.instance?.write(
       "\x1b[31mTerminal not available.\x1b[0m\r\n"
     );
     return;
   }
 
   // Simply run arc to show help/usage
-  window.electronAPI.ptyWrite(ptyId, "arc\n");
+  window.electronAPI.ptyWrite(tab.ptyId, "arc\n");
 }
 
 // Watch for expansion to initialize terminal
@@ -601,12 +661,13 @@ watch(isExpanded, (expanded) => {
       handleFocus();
       // Ensure fit after panel is visible
       setTimeout(() => {
-        if (terminal && fitAddon) {
+        const tab = currentTerminal.value;
+        if (tab.instance && tab.fitAddon) {
           try {
-            fitAddon.fit();
+            tab.fitAddon.fit();
             resizePty();
-            terminal.scrollToBottom();
-            terminal.focus();
+            tab.instance.scrollToBottom();
+            tab.instance.focus();
           } catch (e) {
             console.warn("Terminal fit skipped:", e.message);
           }
@@ -620,10 +681,11 @@ watch(isExpanded, (expanded) => {
 watch(
   () => projectStore.projectPath,
   (newPath, oldPath) => {
-    if (newPath && newPath !== oldPath && ptyId !== null && terminal) {
+    const tab = currentTerminal.value;
+    if (newPath && newPath !== oldPath && tab.ptyId !== null && tab.instance) {
       // Send cd command to terminal to change to project directory
       const cdCommand = `cd "${newPath}" && clear\n`;
-      window.electronAPI?.ptyWrite(ptyId, cdCommand);
+      window.electronAPI?.ptyWrite(tab.ptyId, cdCommand);
     }
   }
 );
@@ -641,8 +703,9 @@ watch(
 
 // Window resize handler
 function handleWindowResize() {
-  if (terminal && fitAddon && isExpanded.value) {
-    fitAddon.fit();
+  const tab = currentTerminal.value;
+  if (tab.instance && tab.fitAddon && isExpanded.value) {
+    tab.fitAddon.fit();
     resizePty();
   }
 }
@@ -746,9 +809,73 @@ onUnmounted(() => {
       @mousedown="(e) => startResize(e, 'se')"
     />
 
+    <!-- Main Container with Left Sidebar -->
+    <div class="flex flex-1 min-h-0">
+      <!-- Left Sidebar - Context-aware command buttons -->
+      <div class="w-24 bg-black border-r border-ui-border flex flex-col items-center gap-1.5 py-3 shrink-0 px-1.5">
+        <!-- Always visible buttons -->
+        <button
+          @click.stop="uiStore.openSetupModal"
+          :disabled="!projectStore.projectPath"
+          class="w-full px-2 py-2 text-xs font-medium rounded bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-green-400/30"
+          title="Setup"
+        >
+          Setup
+        </button>
+        <button
+          @click.stop="handleCheckArcheon"
+          class="w-full px-2 py-2 text-xs font-medium rounded bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 transition-colors border border-purple-400/30"
+          title="Check archeon"
+        >
+          Check
+        </button>
+
+        <div class="w-full h-px bg-ui-border my-1"></div>
+
+        <!-- Frontend Commands -->
+        <template v-if="activeTab === 'frontend'">
+          <button
+            @click.stop="handleNpmInstall"
+            :disabled="isRunningNpmCommand || !hasProjectContent"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-green-400/30"
+            title="NPM install"
+          >
+            Install
+          </button>
+          <button
+            @click.stop="handleNpmRun"
+            :disabled="isRunningNpmCommand || !hasProjectContent"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-green-400/30"
+            :title="`npm run ${devScriptName}`"
+          >
+            Run
+          </button>
+          <button
+            @click.stop="handleNpmPreview"
+            :disabled="!devServerUrl"
+            class="w-full px-2 py-2 text-xs font-medium rounded transition-all bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-green-400/30"
+            :title="devServerUrl ? `Open ${devServerUrl}` : 'Run dev server first'"
+          >
+            Preview
+          </button>
+        </template>
+
+        <!-- Backend Commands -->
+        <template v-if="activeTab === 'backend'">
+          <div class="text-xs text-ui-textMuted text-center px-1 py-2">Backend</div>
+          <div class="text-xs text-ui-textMuted text-center px-1">commands</div>
+          <div class="text-xs text-ui-textMuted text-center px-1">coming</div>
+          <div class="text-xs text-ui-textMuted text-center px-1">soon</div>
+        </template>
+      </div>
+
+      <!-- Right Content Area -->
+      <div class="flex flex-col flex-1 min-w-0"
+      >
+
     <!-- Header (Draggable) -->
     <div
-      class="terminal-header flex items-center justify-between px-3 py-2 bg-ui-bg border-b border-ui-border rounded-t-lg cursor-move shrink-0"
+      class="terminal-header flex items-center justify-between px-3 py-2 bg-ui-bg border-b border-ui-border cursor-move shrink-0"
       @mousedown="startDrag"
     >
       <div class="flex items-center gap-2 pointer-events-none">
@@ -767,82 +894,39 @@ onUnmounted(() => {
         </svg>
         <span class="text-sm font-medium text-ui-text">Terminal</span>
         <span class="text-xs text-ui-textMuted">zsh</span>
+      </div>
+
+      <!-- Frontend/Backend Tabs -->
+      <div class="flex items-center gap-0 pointer-events-auto mx-4">
         <button
-          @click.stop="uiStore.openSetupModal"
-          :disabled="!projectStore.projectPath"
-          class="px-2 py-1 text-xs font-medium rounded bg-green-600/20 text-green-400 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors pointer-events-auto"
-          title="Setup"
+          @click.stop="switchTab('frontend')"
+          :class="[
+            'px-3 py-1 text-xs font-medium transition-colors',
+            activeTab === 'frontend'
+              ? 'bg-green-600/20 text-green-400 border-b-2 border-green-400'
+              : 'text-ui-textMuted hover:text-ui-text'
+          ]"
+          title="Frontend Terminal"
         >
-          Setup
+          Frontend
         </button>
+        <div class="w-px h-4 bg-ui-border"></div>
         <button
-          @click.stop="handleCheckArcheon"
-          class="px-2 py-1 text-xs font-medium rounded bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 transition-colors pointer-events-auto flex items-center gap-1"
-          title="Source ~/.zshrc and check archeon --version"
+          @click.stop="switchTab('backend')"
+          :class="[
+            'px-3 py-1 text-xs font-medium transition-colors',
+            activeTab === 'backend'
+              ? 'bg-blue-600/20 text-blue-400 border-b-2 border-blue-400'
+              : 'text-ui-textMuted hover:text-ui-text'
+          ]"
+          title="Backend Terminal"
         >
-          <svg
-            class="w-3 h-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          Check
+          Backend
         </button>
       </div>
 
-      <!-- NPM Command Buttons -->
+      <!-- Control Buttons -->
       <div class="flex items-center gap-1 pointer-events-auto">
-        <button
-          @click.stop="handleNpmInstall"
-          :disabled="isRunningNpmCommand || !hasProjectContent"
-          class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          title="NPM install"
-        >
-          NPM Install
-        </button>
-        <button
-          @click.stop="handleNpmRun"
-          :disabled="isRunningNpmCommand || !hasProjectContent"
-          class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          :title="`npm run ${devScriptName}`"
-        >
-          Run
-        </button>
-        <button
-          @click.stop="handleNpmPreview"
-          :disabled="!devServerUrl"
-          class="px-2 py-1 text-xs font-medium rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-          :title="
-            devServerUrl ? `Open ${devServerUrl}` : 'Run dev server first'
-          "
-        >
-          <svg
-            class="w-3 h-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-            />
-          </svg>
-          <span>{{
-            devServerUrl
-              ? devServerUrl.replace("http://", "").replace("https://", "")
-              : "Preview"
-          }}</span>
-        </button>
-
         <div class="w-px h-4 bg-ui-border mx-1"></div>
 
         <button
@@ -868,11 +952,22 @@ onUnmounted(() => {
     </div>
 
     <!-- Terminal Content - Critical: min-h-0 for flex, explicit overflow -->
+    <!-- Frontend Terminal -->
     <div
-      ref="terminalRef"
+      ref="frontendTerminalRef"
+      v-show="activeTab === 'frontend'"
       class="terminal-content flex-1 min-h-0"
       @click="handleFocus"
     />
+    <!-- Backend Terminal -->
+    <div
+      ref="backendTerminalRef"
+      v-show="activeTab === 'backend'"
+      class="terminal-content flex-1 min-h-0"
+      @click="handleFocus"
+    />
+      </div>
+    </div>
   </div>
 </template>
 

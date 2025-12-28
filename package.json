@@ -11,8 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/xterm": "^6.0.0",
+    "@rollup/rollup-darwin-arm64": "^4.54.0",
+    "@xterm/addon-fit": "*",
+    "@xterm/xterm": "*",
     "axios": "^1.13.2",
     "chokidar": "^4.0.3",
     "monaco-editor": "^0.55.1",
@@ -22,14 +23,14 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
-    "@vitejs/plugin-vue": "^6.0.1",
+    "@vitejs/plugin-vue": "^5.0.4",
     "autoprefixer": "^10.4.23",
-    "electron": "^39.2.7",
-    "electron-builder": "^26.0.12",
+    "electron": "^33.0.0",
+    "electron-builder": "^24.6.4",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
-    "vite": "^7.2.4",
-    "vite-plugin-electron": "^0.29.0",
+    "vite": "^5.2.11",
+    "vite-plugin-electron": "^0.28.6",
     "vite-plugin-electron-renderer": "^0.14.6"
   },
   "build": {
@@ -75,7 +76,9 @@
     "directories": {
       "output": "release"
     },
-    "asarUnpack": ["node_modules/node-pty/**/*"],
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
     "nodeGypRebuild": false,
     "npmRebuild": false,
     "buildDependenciesFromSource": false
