@@ -1,13 +1,13 @@
 import { app as g, ipcMain as d, dialog as N, shell as D, BrowserWindow as j } from "electron";
-import p from "path";
-import x from "os";
+import f from "path";
+import E from "os";
 import { fileURLToPath as T } from "url";
 import { exec as $ } from "child_process";
 import { promisify as M } from "util";
 import O from "node-pty";
-import C from "fs";
-import F from "chokidar";
-import E from "fs/promises";
+import F from "fs";
+import C from "chokidar";
+import x from "fs/promises";
 class H {
   constructor(e) {
     this.mainWindow = e, this.terminals = /* @__PURE__ */ new Map(), this.nextId = 1;
@@ -17,9 +17,9 @@ class H {
    * @returns {string} - Shell executable path
    */
   getShell() {
-    if (process.env.SHELL && C.existsSync(process.env.SHELL))
+    if (process.env.SHELL && F.existsSync(process.env.SHELL))
       return process.env.SHELL;
-    const e = x.platform();
+    const e = E.platform();
     if (e === "win32")
       return "powershell.exe";
     const s = [
@@ -35,7 +35,7 @@ class H {
       // Last resort
     ];
     for (const t of s)
-      if (C.existsSync(t))
+      if (F.existsSync(t))
         return t;
     return e === "darwin" ? "/bin/zsh" : "/bin/bash";
   }
@@ -49,16 +49,16 @@ class H {
    * @returns {Object} - { id, pid }
    */
   spawn(e = {}) {
-    const s = this.getShell(), t = e.cwd || x.homedir(), n = e.cols || 80, r = e.rows || 24, a = x.platform(), c = x.homedir();
+    const s = this.getShell(), t = e.cwd || E.homedir(), n = e.cols || 80, r = e.rows || 24, a = E.platform(), i = E.homedir();
     console.log(`[PTY] Spawning shell: ${s}`), console.log(`[PTY] Working directory: ${t}`), console.log(`[PTY] Platform: ${a}`);
-    const l = [
-      `${c}/.local/bin`,
+    const c = [
+      `${i}/.local/bin`,
       // pipx installs here
-      `${c}/.cargo/bin`,
+      `${i}/.cargo/bin`,
       // Rust binaries
-      `${c}/.pyenv/shims`,
+      `${i}/.pyenv/shims`,
       // pyenv
-      `${c}/.nvm/versions/node`,
+      `${i}/.nvm/versions/node`,
       // nvm (partial)
       "/opt/homebrew/bin",
       // Homebrew on Apple Silicon
@@ -70,36 +70,36 @@ class H {
       "/bin",
       "/usr/sbin",
       "/sbin"
-    ], u = process.env.PATH || "", i = /* @__PURE__ */ new Set([...l, ...u.split(":")]), f = Array.from(i).filter((h) => h).join(":"), m = {
+    ], u = process.env.PATH || "", l = /* @__PURE__ */ new Set([...c, ...u.split(":")]), p = Array.from(l).filter((w) => w).join(":"), h = {
       ...process.env,
       ...e.env,
       TERM: "xterm-256color",
       COLORTERM: "truecolor",
-      PATH: f,
-      HOME: c,
+      PATH: p,
+      HOME: i,
       SHELL: s,
       // Ensure locale is set for proper character handling
       LANG: process.env.LANG || "en_US.UTF-8",
       LC_ALL: process.env.LC_ALL || "en_US.UTF-8"
-    }, v = [];
-    (s.includes("zsh") || s.includes("bash")) && v.push("-l", "-i"), console.log(`[PTY] Shell args: ${JSON.stringify(v)}`), console.log(`[PTY] PATH includes ~/.local/bin: ${f.includes(".local/bin")}`);
+    }, m = [];
+    (s.includes("zsh") || s.includes("bash")) && m.push("-l", "-i"), console.log(`[PTY] Shell args: ${JSON.stringify(m)}`), console.log(`[PTY] PATH includes ~/.local/bin: ${p.includes(".local/bin")}`);
     try {
-      const h = O.spawn(s, v, {
+      const w = O.spawn(s, m, {
         name: "xterm-256color",
         cols: n,
         rows: r,
         cwd: t,
-        env: m,
+        env: h,
         useConpty: !1
         // Disable ConPTY on Windows, doesn't affect macOS/Linux
-      }), w = this.nextId++;
-      return this.terminals.set(w, h), h.onData((b) => {
-        this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("pty:data", { id: w, data: b });
-      }), h.onExit(({ exitCode: b, signal: R }) => {
-        this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("pty:exit", { id: w, exitCode: b, signal: R }), this.terminals.delete(w);
-      }), { id: w, pid: h.pid };
-    } catch (h) {
-      throw console.error(`Failed to spawn PTY with shell ${s}:`, h), new Error(`PTY spawn failed: ${h.message}`);
+      }), P = this.nextId++;
+      return this.terminals.set(P, w), w.onData((b) => {
+        this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("pty:data", { id: P, data: b });
+      }), w.onExit(({ exitCode: b, signal: R }) => {
+        this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("pty:exit", { id: P, exitCode: b, signal: R }), this.terminals.delete(P);
+      }), { id: P, pid: w.pid };
+    } catch (w) {
+      throw console.error(`Failed to spawn PTY with shell ${s}:`, w), new Error(`PTY spawn failed: ${w.message}`);
     }
   }
   /**
@@ -154,10 +154,10 @@ class I {
    */
   async watch(e) {
     this.stop(), this.projectPath = e;
-    const s = p.join(e, "archeon");
+    const s = f.join(e, "archeon");
     let t = !1;
     try {
-      await E.access(s), t = !0;
+      await x.access(s), t = !0;
     } catch {
       t = !1;
     }
@@ -168,13 +168,13 @@ class I {
       success: !1,
       error: "archeon/ directory not found"
     };
-    return t && (n = await this.readIndexFile(e), r = await this.readArconFile(e)), this.rootWatcher = F.watch(e, {
+    return t && (n = await this.readIndexFile(e), r = await this.readArconFile(e)), this.rootWatcher = C.watch(e, {
       persistent: !0,
       ignoreInitial: !0,
       depth: 0
       // Only watch immediate children
     }), this.rootWatcher.on("addDir", async (a) => {
-      p.basename(a) === "archeon" && await this.startArcheonWatcher(e);
+      f.basename(a) === "archeon" && await this.startArcheonWatcher(e);
     }), t && await this.startArcheonWatcher(e), {
       success: !0,
       initialIndex: n,
@@ -186,8 +186,8 @@ class I {
    * @param {string} projectPath - Root path of the project
    */
   async startArcheonWatcher(e) {
-    const s = p.join(e, "archeon");
-    this.watcher && await this.watcher.close(), this.watcher = F.watch(s, {
+    const s = f.join(e, "archeon");
+    this.watcher && await this.watcher.close(), this.watcher = C.watch(s, {
       persistent: !0,
       ignoreInitial: !1,
       // Process existing files on start
@@ -196,7 +196,7 @@ class I {
         pollInterval: 100
       }
     }), this.watcher.on("change", async (t) => {
-      const n = p.basename(t);
+      const n = f.basename(t);
       if (n === "ARCHEON.index.json") {
         const r = await this.readIndexFile(e);
         r.success && this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("archeon:index-changed", r);
@@ -205,7 +205,7 @@ class I {
         r.success && this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("archeon:arcon-changed", r);
       }
     }), this.watcher.on("add", async (t) => {
-      const n = p.basename(t);
+      const n = f.basename(t);
       if (n === "ARCHEON.index.json") {
         const r = await this.readIndexFile(e);
         r.success && this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("archeon:index-changed", r);
@@ -223,9 +223,9 @@ class I {
    * @returns {Object} - { success, data?, error? }
    */
   async readIndexFile(e) {
-    const s = p.join(e, "archeon", "ARCHEON.index.json");
+    const s = f.join(e, "archeon", "ARCHEON.index.json");
     try {
-      const t = await E.readFile(s, "utf-8");
+      const t = await x.readFile(s, "utf-8");
       return { success: !0, data: JSON.parse(t), path: s };
     } catch (t) {
       return t.code === "ENOENT" ? { success: !1, error: "ARCHEON.index.json not found" } : { success: !1, error: t.message };
@@ -237,9 +237,9 @@ class I {
    * @returns {Object} - { success, content?, chains?, error? }
    */
   async readArconFile(e) {
-    const s = p.join(e, "archeon", "ARCHEON.arcon");
+    const s = f.join(e, "archeon", "ARCHEON.arcon");
     try {
-      const t = await E.readFile(s, "utf-8"), n = this.parseArconChains(t);
+      const t = await x.readFile(s, "utf-8"), n = this.parseArconChains(t);
       return { success: !0, content: t, chains: n, path: s };
     } catch (t) {
       return t.code === "ENOENT" ? { success: !1, error: "ARCHEON.arcon not found" } : { success: !1, error: t.message };
@@ -254,39 +254,39 @@ class I {
     const s = [], t = e.split(`
 `), n = /* @__PURE__ */ new Map();
     for (const r of t) {
-      const c = r.trim().match(/^#\s*(\w+:\S+?)\s*:\s*(.+)$/);
-      if (c) {
-        const l = c[1], u = c[2].trim();
-        n.set(l, u);
+      const i = r.trim().match(/^#\s*(\w+:\S+?)\s*:\s*(.+)$/);
+      if (i) {
+        const c = i[1], u = i[2].trim();
+        n.set(c, u);
       }
     }
     for (const r of t) {
       const a = r.trim();
       if (!a || a.startsWith("#")) continue;
-      const c = a.match(/^@(\w+)\s+(.+)$/);
-      if (c) {
-        const l = c[1], u = c[2], i = this.parseChainGlyphs(u);
-        for (const f of i) {
-          const m = n.get(f.key);
-          m && (f.intent = m);
+      const i = a.match(/^@(\w+)\s+(.+)$/);
+      if (i) {
+        const c = i[1], u = i[2], l = this.parseChainGlyphs(u);
+        for (const p of l) {
+          const h = n.get(p.key);
+          h && (p.intent = h);
         }
         s.push({
-          version: l,
+          version: c,
           raw: a,
-          glyphs: i
+          glyphs: l
         });
         continue;
       }
       if (a.includes("::")) {
-        const l = this.parseContainmentGlyphs(a);
-        for (const u of l) {
-          const i = n.get(u.key);
-          i && (u.intent = i);
+        const c = this.parseContainmentGlyphs(a);
+        for (const u of c) {
+          const l = n.get(u.key);
+          l && (u.intent = l);
         }
         s.push({
           type: "orchestrator",
           raw: a,
-          glyphs: l
+          glyphs: c
         });
       }
     }
@@ -337,15 +337,15 @@ class I {
    * @returns {Object} - { success, error? }
    */
   async writeArconFile(e, s) {
-    const t = p.join(e, "archeon", "ARCHEON.arcon");
+    const t = f.join(e, "archeon", "ARCHEON.arcon");
     try {
-      const n = p.join(e, "archeon");
+      const n = f.join(e, "archeon");
       try {
-        await E.access(n);
+        await x.access(n);
       } catch {
-        await E.mkdir(n, { recursive: !0 });
+        await x.mkdir(n, { recursive: !0 });
       }
-      return await E.writeFile(t, s, "utf-8"), { success: !0, path: t };
+      return await x.writeFile(t, s, "utf-8"), { success: !0, path: t };
     } catch (n) {
       return { success: !1, error: n.message };
     }
@@ -357,14 +357,14 @@ class I {
     this.watcher && (this.watcher.close(), this.watcher = null), this.rootWatcher && (this.rootWatcher.close(), this.rootWatcher = null), this.projectPath = null;
   }
 }
-const k = M($), W = p.dirname(T(import.meta.url));
+const k = M($), W = f.dirname(T(import.meta.url));
 console.log("=== Electron Environment ===");
 console.log("__dirname:", W);
 console.log("app.isPackaged:", g.isPackaged);
 console.log("process.resourcesPath:", process.resourcesPath);
 console.log("app.getAppPath():", g.getAppPath());
 console.log("===========================");
-let y = null, P = null, A = null;
+let y = null, A = null, v = null;
 process.platform === "darwin" && (g.commandLine.appendSwitch("enable-gpu-rasterization"), g.commandLine.appendSwitch("enable-zero-copy"), g.commandLine.appendSwitch("ignore-gpu-blocklist"), g.commandLine.appendSwitch("disable-software-rasterizer"));
 g.commandLine.appendSwitch("js-flags", "--max-old-space-size=2048");
 g.commandLine.appendSwitch("disable-renderer-backgrounding");
@@ -375,7 +375,7 @@ function L() {
     minWidth: 1024,
     minHeight: 768,
     webPreferences: {
-      preload: p.join(W, "preload.js"),
+      preload: f.join(W, "preload.js"),
       contextIsolation: !0,
       nodeIntegration: !1,
       // Performance optimizations
@@ -391,7 +391,7 @@ function L() {
     // macOS-specific optimizations
     vibrancy: process.platform === "darwin" ? "under-window" : void 0,
     visualEffectState: process.platform === "darwin" ? "active" : void 0
-  }), P = new H(y), A = new I(y), y.once("ready-to-show", () => {
+  }), A = new H(y), v = new I(y), y.once("ready-to-show", () => {
     console.log("Window ready-to-show event fired"), y.show();
   }), setTimeout(() => {
     y.isVisible() || (console.log("Fallback: Showing window after timeout"), y.show());
@@ -409,7 +409,7 @@ function L() {
     };
     o();
   } else {
-    const o = g.isPackaged ? p.join(g.getAppPath(), "dist/index.html") : p.join(W, "../dist/index.html");
+    const o = g.isPackaged ? f.join(g.getAppPath(), "dist/index.html") : f.join(W, "../dist/index.html");
     console.log("Loading index.html from:", o), y.loadFile(o).then(() => {
       console.log("index.html loaded successfully");
     }).catch((e) => {
@@ -417,7 +417,7 @@ function L() {
     });
   }
   y.on("closed", () => {
-    y = null, P && P.killAll(), A && A.stop();
+    y = null, A && A.killAll(), v && v.stop();
   });
 }
 d.handle("dialog:openProject", async () => {
@@ -427,37 +427,37 @@ d.handle("dialog:openProject", async () => {
   });
   if (o.canceled || o.filePaths.length === 0)
     return { canceled: !0, path: null };
-  const e = o.filePaths[0], s = p.join(e, "archeon"), t = await import("fs/promises");
+  const e = o.filePaths[0], s = f.join(e, "archeon"), t = await import("fs/promises");
   try {
     return await t.access(s), { canceled: !1, path: e, valid: !0 };
   } catch {
     return { canceled: !1, path: e, valid: !1 };
   }
 });
-d.handle("pty:spawn", (o, e = {}) => P.spawn(e));
+d.handle("pty:spawn", (o, e = {}) => A.spawn(e));
 d.on("pty:write", (o, { id: e, data: s }) => {
-  P.write(e, s);
+  A.write(e, s);
 });
 d.on("pty:resize", (o, { id: e, cols: s, rows: t }) => {
-  P.resize(e, s, t);
+  A.resize(e, s, t);
 });
 d.on("pty:kill", (o, { id: e }) => {
-  P.kill(e);
+  A.kill(e);
 });
-d.handle("archeon:watch", (o, e) => A.watch(e));
-d.handle("archeon:stop", () => (A.stop(), !0));
-d.handle("archeon:readIndex", async (o, e) => A.readIndexFile(e));
-d.handle("archeon:readArcon", async (o, e) => A.readArconFile(e));
-d.handle("archeon:writeArcon", async (o, e, s) => A.writeArconFile(e, s));
+d.handle("archeon:watch", (o, e) => v.watch(e));
+d.handle("archeon:stop", () => (v.stop(), !0));
+d.handle("archeon:readIndex", async (o, e) => v.readIndexFile(e));
+d.handle("archeon:readArcon", async (o, e) => v.readArconFile(e));
+d.handle("archeon:writeArcon", async (o, e, s) => v.writeArconFile(e, s));
 d.handle("rules:copyTemplates", async (o, { files: e, targetDir: s }) => {
-  const t = await import("fs/promises"), r = process.env.VITE_DEV_SERVER_URL ? p.join(W, "..", "rules_templates") : p.join(process.resourcesPath, "rules_templates"), a = { created: [], failed: [] };
-  for (const c of e) {
-    const l = p.join(r, c), u = p.join(s, c);
+  const t = await import("fs/promises"), r = process.env.VITE_DEV_SERVER_URL ? f.join(W, "..", "rules_templates") : f.join(process.resourcesPath, "rules_templates"), a = { created: [], failed: [] };
+  for (const i of e) {
+    const c = f.join(r, i), u = f.join(s, i);
     try {
-      const i = await t.readFile(l, "utf-8");
-      await t.mkdir(p.dirname(u), { recursive: !0 }), await t.writeFile(u, i, "utf-8"), a.created.push(c);
-    } catch (i) {
-      a.failed.push({ file: c, error: i.message });
+      const l = await t.readFile(c, "utf-8");
+      await t.mkdir(f.dirname(u), { recursive: !0 }), await t.writeFile(u, l, "utf-8"), a.created.push(i);
+    } catch (l) {
+      a.failed.push({ file: i, error: l.message });
     }
   }
   return a;
@@ -504,7 +504,7 @@ d.handle("shell:openExternal", async (o, e) => {
 });
 d.handle("shell:openFile", async (o, e, s) => {
   try {
-    const t = p.join(e, s);
+    const t = f.join(e, s);
     try {
       return await k(`code "${t}"`), { success: !0 };
     } catch {
@@ -515,34 +515,65 @@ d.handle("shell:openFile", async (o, e, s) => {
   }
 });
 d.handle("archeon:getShapes", async () => {
-  const o = x.homedir(), e = await import("fs/promises"), s = await import("path"), t = `${o}/.local/pipx/venvs/archeon/lib`;
+  const o = E.homedir(), e = await import("fs/promises"), s = await import("path");
+  let t = null;
   try {
-    const r = (await e.readdir(t)).find((i) => i.startsWith("python"));
-    if (!r)
-      throw new Error("Could not find Python directory in pipx venv");
-    const a = s.join(
-      t,
-      r,
-      "site-packages/archeon/architectures"
-    ), l = (await e.readdir(a)).filter((i) => i.endsWith(".shape.json")), u = [];
-    for (const i of l) {
-      const f = s.join(a, i), m = await e.readFile(f, "utf-8"), v = JSON.parse(m), h = i.replace(".shape.json", ""), w = {
-        id: h,
-        name: v.name || h.split("-").map((b) => b.charAt(0).toUpperCase() + b.slice(1)).join(" + "),
-        description: v.description || `${h} architecture template`,
-        icon: "📦",
-        tags: v.tags || []
-      };
-      w.tags.length === 0 && (h.includes("vue") && w.tags.push("Vue 3"), h.includes("react") && w.tags.push("React"), (h.includes("nextjs") || h.includes("next")) && w.tags.push("Next.js"), h.includes("fastapi") && w.tags.push("FastAPI", "Python"), h.includes("express") && w.tags.push("Express", "Node.js"), h.includes("capacitor") && w.tags.push("Capacitor", "Mobile")), u.push(w);
+    const n = [
+      // Development/editable install (pipx install -e or pip install -e)
+      s.join(o, "dev/archeon/archeon/architectures"),
+      // Standard pipx install on Linux/Mac - need to find python version
+      // We'll handle this one specially below
+      null
+    ];
+    if (n[0])
+      try {
+        await e.access(n[0]), t = n[0], console.log(
+          "[getShapes] Found architectures in dev install:",
+          t
+        );
+      } catch {
+      }
+    if (!t) {
+      const c = `${o}/.local/pipx/venvs/archeon/lib`;
+      try {
+        const l = (await e.readdir(c)).find((p) => p.startsWith("python"));
+        if (l) {
+          const p = s.join(
+            c,
+            l,
+            "site-packages/archeon/architectures"
+          );
+          await e.access(p), t = p, console.log(
+            "[getShapes] Found architectures in pipx install:",
+            t
+          );
+        }
+      } catch {
+      }
     }
-    return { success: !0, shapes: u, path: a };
+    if (!t)
+      throw new Error(
+        "Could not find archeon architectures directory. Please ensure archeon is installed via pipx."
+      );
+    const a = (await e.readdir(t)).filter((c) => c.endsWith(".shape.json")), i = [];
+    for (const c of a) {
+      const u = s.join(t, c), l = await e.readFile(u, "utf-8"), p = JSON.parse(l), h = c.replace(".shape.json", ""), m = {
+        id: h,
+        name: p.name || h.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" + "),
+        description: p.description || `${h} architecture template`,
+        icon: "📦",
+        tags: p.tags || []
+      };
+      m.tags.length === 0 && (h.includes("vue") && m.tags.push("Vue 3"), h.includes("react") && m.tags.push("React"), (h.includes("nextjs") || h.includes("next")) && m.tags.push("Next.js"), h.includes("fastapi") && m.tags.push("FastAPI", "Python"), h.includes("express") && m.tags.push("Express", "Node.js"), h.includes("capacitor") && m.tags.push("Capacitor", "Mobile")), i.push(m);
+    }
+    return { success: !0, shapes: i, path: t };
   } catch (n) {
     return console.error("[getShapes] Error:", n.message), { success: !1, error: n.message, shapes: [] };
   }
 });
 d.handle("shell:checkCommand", async (o, e) => {
   try {
-    const s = x.homedir(), t = [
+    const s = E.homedir(), t = [
       `${s}/.local/bin`,
       "/opt/homebrew/bin",
       "/usr/local/bin",
@@ -578,9 +609,9 @@ d.handle("fs:findClientDir", async (o, e) => {
     const n = t.join(e, "client");
     try {
       if ((await s.stat(n)).isDirectory()) {
-        const c = t.join(n, "package.json");
+        const i = t.join(n, "package.json");
         try {
-          return await s.access(c), { success: !0, path: n, hasPackageJson: !0 };
+          return await s.access(i), { success: !0, path: n, hasPackageJson: !0 };
         } catch {
           return { success: !0, path: n, hasPackageJson: !1 };
         }
@@ -603,19 +634,19 @@ d.handle("fs:findClientDir", async (o, e) => {
 d.handle("fs:readPackageJson", async (o, e) => {
   const s = await import("fs/promises"), t = await import("path");
   try {
-    const n = t.join(e, "package.json"), r = await s.readFile(n, "utf-8"), a = JSON.parse(r), c = a.scripts || {};
-    let l = null, u = null;
-    const i = ["dev", "start", "serve", "develop", "run"];
-    for (const f of i)
-      if (c[f]) {
-        l = f, u = c[f];
+    const n = t.join(e, "package.json"), r = await s.readFile(n, "utf-8"), a = JSON.parse(r), i = a.scripts || {};
+    let c = null, u = null;
+    const l = ["dev", "start", "serve", "develop", "run"];
+    for (const p of l)
+      if (i[p]) {
+        c = p, u = i[p];
         break;
       }
     return {
       success: !0,
       name: a.name,
-      scripts: c,
-      devScript: l,
+      scripts: i,
+      devScript: c,
       devCommand: u
     };
   } catch (n) {
@@ -650,46 +681,46 @@ d.handle("archeon:validate", async (o, e) => {
       cwd: e,
       timeout: 3e4
       // 30 second timeout
-    }), a = n + r, c = a.includes("Validation passed") || a.includes("✓"), l = a.match(/Chains:\s*(\d+)/), u = a.match(/Glyphs:\s*(\d+)/);
-    let i = [];
-    const f = a.matchAll(/•\s*ERR:[^\n]+/g);
-    for (const b of f)
-      i.push(b[0].replace("• ", ""));
-    let m = [];
-    const v = a.matchAll(/•\s*WARN:[^\n]+/g);
-    for (const b of v)
-      m.push(b[0].replace("• ", ""));
-    const h = S(i, m);
-    return i = h.errors, m = h.warnings, {
+    }), a = n + r, i = a.includes("Validation passed") || a.includes("✓"), c = a.match(/Chains:\s*(\d+)/), u = a.match(/Glyphs:\s*(\d+)/);
+    let l = [];
+    const p = a.matchAll(/•\s*ERR:[^\n]+/g);
+    for (const b of p)
+      l.push(b[0].replace("• ", ""));
+    let h = [];
+    const m = a.matchAll(/•\s*WARN:[^\n]+/g);
+    for (const b of m)
+      h.push(b[0].replace("• ", ""));
+    const w = S(l, h);
+    return l = w.errors, h = w.warnings, {
       success: !0,
-      isValid: i.length === 0,
-      chains: l ? parseInt(l[1]) : 0,
+      isValid: l.length === 0,
+      chains: c ? parseInt(c[1]) : 0,
       glyphs: u ? parseInt(u[1]) : 0,
-      errors: i,
-      warnings: m,
+      errors: l,
+      warnings: h,
       output: a
     };
   } catch (n) {
     const r = (n.stdout || "") + (n.stderr || "");
     let a = [];
-    const c = r.matchAll(/•\s*ERR:[^\n]+/g);
-    for (const m of c)
-      a.push(m[0].replace("• ", ""));
-    let l = [];
+    const i = r.matchAll(/•\s*ERR:[^\n]+/g);
+    for (const h of i)
+      a.push(h[0].replace("• ", ""));
+    let c = [];
     const u = r.matchAll(/•\s*WARN:[^\n]+/g);
-    for (const m of u)
-      l.push(m[0].replace("• ", ""));
-    const i = S(a, l);
-    a = i.errors, l = i.warnings;
-    const f = a.length === 0;
+    for (const h of u)
+      c.push(h[0].replace("• ", ""));
+    const l = S(a, c);
+    a = l.errors, c = l.warnings;
+    const p = a.length === 0;
     return (s = n.message) != null && s.includes("not found") || (t = n.message) != null && t.includes("ENOENT") ? {
       success: !1,
       error: "arc command not found. Make sure it's installed and in PATH."
     } : {
       success: !0,
-      isValid: f,
+      isValid: p,
       errors: a,
-      warnings: l,
+      warnings: c,
       output: r
     };
   }

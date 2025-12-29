@@ -25,18 +25,18 @@ let ptyManager = null;
 let archeonWatcher = null;
 
 // Performance optimizations for Electron
-if (process.platform === 'darwin') {
+if (process.platform === "darwin") {
   // Enable Metal GPU acceleration on macOS
-  app.commandLine.appendSwitch('enable-gpu-rasterization');
-  app.commandLine.appendSwitch('enable-zero-copy');
-  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+  app.commandLine.appendSwitch("enable-gpu-rasterization");
+  app.commandLine.appendSwitch("enable-zero-copy");
+  app.commandLine.appendSwitch("ignore-gpu-blocklist");
   // Disable features we don't need
-  app.commandLine.appendSwitch('disable-software-rasterizer');
+  app.commandLine.appendSwitch("disable-software-rasterizer");
 }
 
 // Memory and performance
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=2048');
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=2048");
+app.commandLine.appendSwitch("disable-renderer-backgrounding");
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -51,7 +51,7 @@ function createWindow() {
       // Performance optimizations
       spellcheck: false,
       enableWebSQL: false,
-      v8CacheOptions: 'code',
+      v8CacheOptions: "code",
     },
     backgroundColor: "#0f0f0f",
     titleBarStyle: "hiddenInset",
@@ -107,9 +107,10 @@ function createWindow() {
     const indexPath = app.isPackaged
       ? path.join(app.getAppPath(), "dist/index.html")
       : path.join(__dirname, "../dist/index.html");
-    
+
     console.log("Loading index.html from:", indexPath);
-    mainWindow.loadFile(indexPath)
+    mainWindow
+      .loadFile(indexPath)
       .then(() => {
         console.log("index.html loaded successfully");
       })
@@ -211,10 +212,10 @@ ipcMain.handle("rules:copyTemplates", async (event, { files, targetDir }) => {
     try {
       // Read template
       const content = await fs.readFile(sourcePath, "utf-8");
-      
+
       // Ensure target directory exists
       await fs.mkdir(path.dirname(destPath), { recursive: true });
-      
+
       // Write to target
       await fs.writeFile(destPath, content, "utf-8");
       results.created.push(file);
@@ -287,7 +288,7 @@ ipcMain.handle("shell:openExternal", async (event, url) => {
 ipcMain.handle("shell:openFile", async (event, projectPath, filePath) => {
   try {
     const fullPath = path.join(projectPath, filePath);
-    
+
     // Try to open with code command first (VSCode)
     try {
       await execAsync(`code "${fullPath}"`);
@@ -307,62 +308,110 @@ ipcMain.handle("archeon:getShapes", async () => {
   const homeDir = os.homedir();
   const fs = await import("fs/promises");
   const pathModule = await import("path");
-  
-  // Look for shapes in pipx install directory
-  const pipxArchDir = `${homeDir}/.local/pipx/venvs/archeon/lib`;
-  
+
+  let architecturesDir = null;
+
   try {
-    // Find the python version directory
-    const libContents = await fs.readdir(pipxArchDir);
-    const pythonDir = libContents.find(d => d.startsWith('python'));
-    
-    if (!pythonDir) {
-      throw new Error('Could not find Python directory in pipx venv');
+    // Try multiple possible locations for the architectures directory
+    const possiblePaths = [
+      // Development/editable install (pipx install -e or pip install -e)
+      pathModule.join(homeDir, "dev/archeon/archeon/architectures"),
+
+      // Standard pipx install on Linux/Mac - need to find python version
+      // We'll handle this one specially below
+      null,
+    ];
+
+    // First try the dev path
+    if (possiblePaths[0]) {
+      try {
+        await fs.access(possiblePaths[0]);
+        architecturesDir = possiblePaths[0];
+        console.log(
+          "[getShapes] Found architectures in dev install:",
+          architecturesDir
+        );
+      } catch {
+        // Dev path doesn't exist, continue
+      }
     }
-    
-    const architecturesDir = pathModule.join(
-      pipxArchDir, 
-      pythonDir, 
-      'site-packages/archeon/architectures'
-    );
-    
+
+    // If not found in dev, try pipx install directory
+    if (!architecturesDir) {
+      const pipxArchDir = `${homeDir}/.local/pipx/venvs/archeon/lib`;
+
+      try {
+        // Find the python version directory
+        const libContents = await fs.readdir(pipxArchDir);
+        const pythonDir = libContents.find((d) => d.startsWith("python"));
+
+        if (pythonDir) {
+          const pipxPath = pathModule.join(
+            pipxArchDir,
+            pythonDir,
+            "site-packages/archeon/architectures"
+          );
+
+          await fs.access(pipxPath);
+          architecturesDir = pipxPath;
+          console.log(
+            "[getShapes] Found architectures in pipx install:",
+            architecturesDir
+          );
+        }
+      } catch {
+        // Pipx path doesn't exist either
+      }
+    }
+
+    if (!architecturesDir) {
+      throw new Error(
+        "Could not find archeon architectures directory. Please ensure archeon is installed via pipx."
+      );
+    }
+
     // Read all .shape.json files
     const files = await fs.readdir(architecturesDir);
-    const shapeFiles = files.filter(f => f.endsWith('.shape.json'));
+    const shapeFiles = files.filter((f) => f.endsWith(".shape.json"));
     const shapes = [];
-    
+
     for (const file of shapeFiles) {
       const filePath = pathModule.join(architecturesDir, file);
-      const content = await fs.readFile(filePath, 'utf-8');
+      const content = await fs.readFile(filePath, "utf-8");
       const shapeData = JSON.parse(content);
-      
+
       // Extract shape info from the JSON
-      const id = file.replace('.shape.json', '');
+      const id = file.replace(".shape.json", "");
       const shape = {
         id,
-        name: shapeData.name || id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' + '),
+        name:
+          shapeData.name ||
+          id
+            .split("-")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" + "),
         description: shapeData.description || `${id} architecture template`,
-        icon: '📦',
-        tags: shapeData.tags || []
+        icon: "📦",
+        tags: shapeData.tags || [],
       };
-      
+
       // Add inferred tags if none provided
       if (shape.tags.length === 0) {
-        if (id.includes('vue')) shape.tags.push('Vue 3');
-        if (id.includes('react')) shape.tags.push('React');
-        if (id.includes('nextjs') || id.includes('next')) shape.tags.push('Next.js');
-        if (id.includes('fastapi')) shape.tags.push('FastAPI', 'Python');
-        if (id.includes('express')) shape.tags.push('Express', 'Node.js');
-        if (id.includes('capacitor')) shape.tags.push('Capacitor', 'Mobile');
+        if (id.includes("vue")) shape.tags.push("Vue 3");
+        if (id.includes("react")) shape.tags.push("React");
+        if (id.includes("nextjs") || id.includes("next"))
+          shape.tags.push("Next.js");
+        if (id.includes("fastapi")) shape.tags.push("FastAPI", "Python");
+        if (id.includes("express")) shape.tags.push("Express", "Node.js");
+        if (id.includes("capacitor")) shape.tags.push("Capacitor", "Mobile");
       }
-      
+
       shapes.push(shape);
     }
-    
+
     return { success: true, shapes, path: architecturesDir };
-    
   } catch (error) {
-    console.error('[getShapes] Error:', error.message);
+    console.error("[getShapes] Error:", error.message);
     return { success: false, error: error.message, shapes: [] };
   }
 });
@@ -374,20 +423,22 @@ ipcMain.handle("shell:checkCommand", async (event, command) => {
     const homeDir = os.homedir();
     const expandedPath = [
       `${homeDir}/.local/bin`,
-      '/opt/homebrew/bin',
-      '/usr/local/bin',
-      process.env.PATH
-    ].join(':');
-    
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+      process.env.PATH,
+    ].join(":");
+
     // Expand ~ to home directory in command
-    const expandedCommand = command.replace(/^~/, homeDir).replace(/\s~\//g, ` ${homeDir}/`);
-    
+    const expandedCommand = command
+      .replace(/^~/, homeDir)
+      .replace(/\s~\//g, ` ${homeDir}/`);
+
     console.log(`[checkCommand] Original: ${command}`);
     console.log(`[checkCommand] Expanded: ${expandedCommand}`);
-    
-    const { stdout } = await execAsync(expandedCommand, { 
+
+    const { stdout } = await execAsync(expandedCommand, {
       timeout: 5000,
-      env: { ...process.env, PATH: expandedPath }
+      env: { ...process.env, PATH: expandedPath },
     });
     console.log(`[checkCommand] Success: ${stdout.trim()}`);
     return { success: true, output: stdout.trim() };
@@ -512,8 +563,7 @@ function filterValidationMessages(errors, warnings) {
 
   const filtered = {
     errors: errors.filter(
-      (err) =>
-        !ignoredErrorPatterns.some((pattern) => err.includes(pattern))
+      (err) => !ignoredErrorPatterns.some((pattern) => err.includes(pattern))
     ),
     warnings: warnings.filter(
       (warn) =>

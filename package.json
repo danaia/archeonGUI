@@ -11,7 +11,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.54.0",
     "@xterm/addon-fit": "*",
     "@xterm/xterm": "*",
     "axios": "^1.13.2",
@@ -29,7 +28,7 @@
     "electron-builder": "^24.6.4",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
-    "vite": "^5.2.11",
+    "vite": "^5.4.11",
     "vite-plugin-electron": "^0.28.6",
     "vite-plugin-electron-renderer": "^0.14.6"
   },
@@ -82,5 +81,8 @@
     "nodeGypRebuild": false,
     "npmRebuild": false,
     "buildDependenciesFromSource": false
+  },
+  "optionalDependencies": {
+    "@esbuild/linux-x64": "^0.25.12"
   }
 }
