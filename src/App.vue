@@ -7,6 +7,7 @@ import {
   ToastContainer,
   SetupModal,
   GlyphEditModal,
+  WelcomeModal,
 } from "./components";
 import {
   useTerminalStore,
@@ -200,6 +201,12 @@ onMounted(async () => {
   window.addEventListener("keydown", handleGlobalKeydown);
   uiStore.setFocus("canvas");
 
+  // Check if user has seen the welcome modal before
+  const hasSeenWelcome = localStorage.getItem("archeon:hasSeenWelcome") === "true";
+  if (!hasSeenWelcome) {
+    uiStore.openWelcomeModal();
+  }
+
   // Initialize archeon sync if in Electron
   if (isElectron.value) {
     initArcheonSync();
@@ -323,6 +330,26 @@ onUnmounted(() => {
             />
           </svg>
         </button>
+
+        <!-- Help/Welcome Guide Button -->
+        <button
+          @click="uiStore.openWelcomeModal"
+          class="px-3 py-1.5 text-xs bg-ui-bgLight hover:bg-blue-500/20 text-ui-text rounded transition-colors flex items-center gap-2"
+          title="Show welcome guide"
+        >
+          <svg
+            class="w-4 h-4"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+          >
+            <path
+              fill="currentColor"
+              d="m14.757 16.172l3.571 3.571a10.004 10.004 0 0 1-12.656 0l3.57-3.571A5 5 0 0 0 12 17c1.02 0 1.967-.305 2.757-.828m-10.5-10.5l3.571 3.57A5 5 0 0 0 7 12c0 1.02.305 1.967.828 2.757l-3.57 3.572A10 10 0 0 1 2 12l.005-.324a10 10 0 0 1 2.252-6.005M22 12c0 2.343-.82 4.57-2.257 6.328l-3.571-3.57A5 5 0 0 0 17 12c0-1.02-.305-1.967-.828-2.757l3.571-3.57A10 10 0 0 1 22 12m-5-8.66q.707.41 1.33.918l-3.573 3.57A5 5 0 0 0 12 7c-1.02 0-1.967.305-2.757.828L5.67 4.258A10 10 0 0 1 17 3.34"
+            />
+          </svg>
+        </button>
       </div>
 
       <div class="flex-1 text-center">
@@ -364,6 +391,9 @@ onUnmounted(() => {
 
     <!-- Glyph Edit Modal -->
     <GlyphEditModal />
+
+    <!-- Welcome Modal -->
+    <WelcomeModal />
   </div>
 </template>
 

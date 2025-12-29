@@ -93,10 +93,10 @@ export const ideOptions = [
 // macOS uses Homebrew, Linux uses apt
 // Installs archeon directly from GitHub
 export const PIPX_INSTALL_COMMAND_MAC =
-  "echo '\n📦 Installing pipx + Archeon CLI\n' && echo '→ Step 1/2: pipx via Homebrew...' && brew install pipx && pipx ensurepath && echo '✓ pipx ready\n' && echo '→ Step 2/2: Archeon CLI via pipx...' && pipx install --force git+https://github.com/danaia/archeon.git && hash -r && source ~/.zshrc && hash -r && if [ -f ~/.local/bin/archeon ]; then echo '\n✓ Archeon installed successfully!' && ~/.local/bin/archeon --version; else echo '\n✗ Installation failed'; fi && echo '\n💡 Tip: Click Check button to verify'";
+  "brew install pipx && pipx ensurepath && pipx install git+https://github.com/danaia/archeon.git";
 
 export const PIPX_INSTALL_COMMAND_LINUX =
-  "echo '\n📦 Installing pipx + Archeon CLI\n' && echo '→ Step 1/2: pipx via apt...' && sudo apt update && sudo apt install -y pipx && pipx ensurepath && echo '✓ pipx ready\n' && echo '→ Step 2/2: Archeon CLI via pipx...' && pipx install --force git+https://github.com/danaia/archeon.git && hash -r && source ~/.bashrc && hash -r && if [ -f ~/.local/bin/archeon ]; then echo '\n✓ Archeon installed successfully!' && ~/.local/bin/archeon --version; else echo '\n✗ Installation failed'; fi && echo '\n💡 Tip: Click Check button to verify'";
+  "sudo apt update && sudo apt install -y pipx && pipx ensurepath && pipx install git+https://github.com/danaia/archeon.git";
 
 // Get the appropriate pipx install command based on platform
 export function getPipxInstallCommand() {
@@ -123,19 +123,8 @@ export function getCLIInstallCommand(isPipxInstalled) {
   const tool = usePipx ? "pipx" : "pip";
   
   const installCmd = usePipx
-    ? "pipx install --force git+https://github.com/danaia/archeon.git"
-    : "python3 -m pip install --user --force-reinstall git+https://github.com/danaia/archeon.git";
+    ? "pipx install git+https://github.com/danaia/archeon.git"
+    : "python3 -m pip install --user git+https://github.com/danaia/archeon.git";
 
-  // Source shell config based on OS
-  const sourceCmd = os === 'macos' ? 'source ~/.zshrc' : 'source ~/.bashrc';
-  
-  // For pip install on macOS, also add PATH instructions
-  const pathNote = (!usePipx && os === 'macos')
-    ? ` && echo && echo '⚠️  If archeon command not found, add to PATH:' && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' && echo 'Add this to your ~/.zshrc or ~/.bash_profile'`
-    : "";
-
-  // Check for success after installation - use direct path check and hash refresh
-  const successCheck = `hash -r && ${sourceCmd} && hash -r && echo && echo 'Checking installation...' && if [ -f ~/.local/bin/archeon ]; then echo '[OK] Archeon binary found at ~/.local/bin/archeon' && ~/.local/bin/archeon --version; else echo '❌ ERROR: ~/.local/bin/archeon not found'; fi`;
-
-  return `echo && echo '=== ARCHEON CLI - Global Installation ===' && echo && echo 'Platform: ${os}' && echo 'Tool: ${tool}' && echo && ${installCmd}${pathNote} && ${successCheck} && echo && echo '⚠️  Note: Restart your terminal or run: ${sourceCmd}'`;
+  return installCmd;
 }

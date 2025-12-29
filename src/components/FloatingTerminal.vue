@@ -161,23 +161,14 @@ async function initTerminal() {
       return true;
     }
     
-    // Cmd+V (Mac) or Ctrl+V (Windows/Linux) - paste from clipboard
-    if ((event.metaKey || event.ctrlKey) && event.key === 'v' && event.type === 'keydown') {
-      navigator.clipboard.readText().then((text) => {
-        if (text && tab.ptyId !== null && window.electronAPI) {
-          window.electronAPI.ptyWrite(tab.ptyId, text);
-        }
-      });
-      return false; // Prevent default
-    }
-    
     // Cmd+A (Mac) or Ctrl+A (Windows/Linux) - select all
     if ((event.metaKey || event.ctrlKey) && event.key === 'a' && event.type === 'keydown') {
       terminal.selectAll();
       return false;
     }
     
-    return true; // Let other keys pass through
+    // Let paste (Cmd+V/Ctrl+V) be handled by xterm natively to avoid duplication
+    return true; // Let all other keys pass through to terminal
   });
 
   if (isElectron.value) {

@@ -10,9 +10,10 @@ export const useUIStore = defineStore("ui", () => {
   const focusedElement = ref(null); // 'canvas' | 'terminal' | 'drawer' | null
 
   // Modal state
-  const activeModal = ref(null); // null | 'setup' | 'glyphEdit'
+  const activeModal = ref(null); // null | 'setup' | 'glyphEdit' | 'welcome'
   const isSetupModalOpen = computed(() => activeModal.value === 'setup');
   const isGlyphEditModalOpen = computed(() => activeModal.value === 'glyphEdit');
+  const isWelcomeModalOpen = computed(() => activeModal.value === 'welcome');
   
   // Glyph edit modal state
   const editingTile = ref(null); // Tile being edited (null if creating new)
@@ -230,6 +231,14 @@ export const useUIStore = defineStore("ui", () => {
     activeModal.value = null;
   }
 
+  function openWelcomeModal() {
+    activeModal.value = 'welcome';
+  }
+
+  function closeWelcomeModal() {
+    activeModal.value = null;
+  }
+
   return {
     // State
     isDrawerOpen,
@@ -249,6 +258,7 @@ export const useUIStore = defineStore("ui", () => {
     canvasInteractionsEnabled,
     isSetupModalOpen,
     isGlyphEditModalOpen,
+    isWelcomeModalOpen,
 
     // Methods
     openDrawer,
@@ -270,5 +280,7 @@ export const useUIStore = defineStore("ui", () => {
     closeSetupModal,
     openGlyphEditModal,
     closeGlyphEditModal,
+    openWelcomeModal,
+    closeWelcomeModal,
   };
 });
