@@ -178,7 +178,21 @@ export class ArcheonWatcher {
   parseArconChains(content) {
     const chains = [];
     const lines = content.split("\n");
+    const intentMap = new Map(); // Map glyph labels to their intents
 
+    // First pass: collect intent comments
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Match intent comments: # GLYPHTYPE:name: intent text
+      const intentMatch = trimmed.match(/^#\s*(\w+:\S+?)\s*:\s*(.+)$/);
+      if (intentMatch) {
+        const glyphLabel = intentMatch[1];
+        const intent = intentMatch[2].trim();
+        intentMap.set(glyphLabel, intent);
+      }
+    }
+
+    // Second pass: parse chains and attach intents
     for (const line of lines) {
       const trimmed = line.trim();
 
@@ -192,6 +206,14 @@ export class ArcheonWatcher {
         const chainDef = versionMatch[2];
         const glyphs = this.parseChainGlyphs(chainDef);
 
+        // Attach intent to each glyph if it exists
+        for (const glyph of glyphs) {
+          const intent = intentMap.get(glyph.key);
+          if (intent) {
+            glyph.intent = intent;
+          }
+        }
+
         chains.push({
           version,
           raw: trimmed,
@@ -203,6 +225,15 @@ export class ArcheonWatcher {
       // Match orchestrator layer definitions: ORC:main :: PRS:glyph :: ...
       if (trimmed.includes("::")) {
         const glyphs = this.parseContainmentGlyphs(trimmed);
+
+        // Attach intent to each glyph if it exists
+        for (const glyph of glyphs) {
+          const intent = intentMap.get(glyph.key);
+          if (intent) {
+            glyph.intent = intent;
+          }
+        }
+
         chains.push({
           type: "orchestrator",
           raw: trimmed,

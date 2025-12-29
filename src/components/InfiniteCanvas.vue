@@ -763,7 +763,32 @@ onUnmounted(() => {
           class="px-2 py-1 flex-1 flex flex-col justify-center overflow-hidden"
           v-if="canvasStore.zoom > 0.3"
         >
+          <Tooltip
+            v-if="tile.intent"
+            position="right"
+            maxWidth="320px"
+            :offsetX="10"
+            :offsetY="-10"
+          >
+            <span
+              class="text-ui-text font-medium truncate leading-tight cursor-help"
+              :style="{ fontSize: Math.max(10, 12 * canvasStore.zoom) + 'px' }"
+            >
+              {{ tile.name }}
+            </span>
+            <template #content>
+              <div class="space-y-1.5">
+                <div class="font-semibold text-blue-300 flex items-center gap-2">
+                  <span>{{ tile.glyphType }}: {{ tile.name }}</span>
+                </div>
+                <p class="text-slate-300 leading-relaxed whitespace-normal">
+                  {{ tile.intent }}
+                </p>
+              </div>
+            </template>
+          </Tooltip>
           <span
+            v-else
             class="text-ui-text font-medium truncate leading-tight"
             :style="{ fontSize: Math.max(10, 12 * canvasStore.zoom) + 'px' }"
           >

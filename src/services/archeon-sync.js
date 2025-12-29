@@ -149,9 +149,9 @@ export function syncChainsToTiles(chains, projectPath = null) {
         color: typeInfo.color,
         icon: typeInfo.icon,
         layer: typeInfo.layer,
-        // These will be populated from index.json when confirmed
+        // Intent from parsed arcon file, or from index.json when confirmed
         file: null,
-        intent: null,
+        intent: glyph.intent || null,
         sections: [],
         chain: chain.version,
       };
