@@ -16,7 +16,7 @@
     "axios": "^1.13.2",
     "chokidar": "^4.0.3",
     "monaco-editor": "^0.55.1",
-    "node-pty": "^1.1.0",
+    "node-pty": "^1.0.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.24"
   },
@@ -31,6 +31,16 @@
     "vite": "^5.4.11",
     "vite-plugin-electron": "^0.28.6",
     "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "overrides": {
+    "@vue/devtools-api": "file:./stubs/@vue/devtools-api"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder --arm64 --mac --dir",
+    "build:dmg": "vite build && electron-builder --arm64 --mac dmg",
+    "preview": "vite preview",
+    "postinstall": "rm -rf node_modules/@vue/devtools-kit node_modules/@vue/devtools-api || true"
   },
   "build": {
     "appId": "com.archeon.gui",
@@ -83,6 +93,9 @@
     "buildDependenciesFromSource": false
   },
   "optionalDependencies": {
-    "@esbuild/linux-x64": "^0.25.12"
+    "@esbuild/linux-x64": "^0.25.12",
+    "@rollup/rollup-linux-x64-gnu": "4.53.3",
+    "@rollup/rollup-darwin-x64": "4.53.3",
+    "@rollup/rollup-darwin-arm64": "4.53.3"
   }
 }
