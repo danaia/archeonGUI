@@ -48,6 +48,15 @@ These shapes prevent architectural drift, reduce decision fatigue, and give AI a
 
 ## Installation
 
+### Prerequisites
+
+Before installing, ensure you have:
+- **Node.js** 20.18+ (20.19+ recommended)
+- **npm** 8.0+ or **yarn** 1.22+
+- **Git**
+
+### macOS Installation
+
 ```bash
 # Clone the repository
 git clone https://github.com/danaia/archeonGUI.git
@@ -56,8 +65,69 @@ cd archeonGUI
 # Install dependencies
 npm install
 
-# Rebuild native modules for Electron
-npm run rebuild
+# The installation will automatically:
+# - Install platform-specific rollup binaries (@rollup/rollup-darwin-arm64 for Apple Silicon or @rollup/rollup-darwin-x64 for Intel)
+# - Set up native modules for Electron
+# - Configure the stub for @vue/devtools-api
+
+# You're ready to go!
+npm run dev
+```
+
+### Linux Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/danaia/archeonGUI.git
+cd archeonGUI
+
+# Install dependencies
+npm install
+
+# The installation will automatically:
+# - Install platform-specific rollup binaries (@rollup/rollup-linux-x64-gnu or @rollup/rollup-linux-x64-musl)
+# - Set up native modules for Electron (node-pty for terminal support)
+# - Configure the stub for @vue/devtools-api
+
+# You're ready to go!
+npm run dev
+```
+
+### Troubleshooting Installation
+
+**Issue: "Cannot find module @rollup/rollup-*"**
+
+This can occur due to npm's handling of optional dependencies. Fix it with:
+
+```bash
+# Clean install
+rm -rf node_modules package-lock.json
+npm cache clean --force
+
+# Reinstall without optional deps first
+npm install --no-optional
+
+# Then install optional deps (includes platform-specific rollup binaries)
+npm install --include=optional
+```
+
+**Issue: Terminal not working on Linux**
+
+Ensure native modules are properly built:
+
+```bash
+npm install --build-from-source node-pty
+```
+
+**Issue: Permission errors on Linux**
+
+Some Linux distributions require additional permissions for pty:
+
+```bash
+# Add your user to the tty group
+sudo usermod -a -G tty $USER
+
+# Log out and back in for changes to take effect
 ```
 
 ## Development

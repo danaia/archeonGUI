@@ -2,9 +2,15 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import electron from "vite-plugin-electron";
 import renderer from "vite-plugin-electron-renderer";
+import { fileURLToPath } from 'url';
 
 // https://vite.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@vue/devtools-api': fileURLToPath(new URL('./stubs/@vue/devtools-api/index.js', import.meta.url))
+    }
+  },
   plugins: [
     vue(),
     electron([
