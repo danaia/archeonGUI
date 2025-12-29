@@ -6,7 +6,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder --arm64 --mac --dir",
+    "build": "vite build && electron-builder --linux --dir",
     "build:dmg": "vite build && electron-builder --arm64 --mac dmg",
     "preview": "vite preview",
     "postinstall": "rm -rf node_modules/@vue/devtools-kit node_modules/@vue/devtools-api || true"
