@@ -92,6 +92,18 @@ echo -e "${BLUE}Installing dependencies...${NC}"
 npm install
 
 if [ $? -eq 0 ]; then
+    # Rebuild node-pty for Electron on macOS
+    if [ "$PLATFORM" = "mac" ]; then
+        echo ""
+        echo -e "${BLUE}Rebuilding node-pty for Electron (macOS)...${NC}"
+        npx electron-rebuild -f -w node-pty
+        if [ $? -ne 0 ]; then
+            echo -e "${YELLOW}Warning: node-pty rebuild failed, but continuing...${NC}"
+        fi
+    fi
+fi
+
+if [ $? -eq 0 ]; then
     echo ""
     echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║   Setup complete! ✓                    ║${NC}"

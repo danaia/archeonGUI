@@ -40,7 +40,7 @@
   },
   "build": {
     "appId": "com.archeon.gui",
-    "productName": "ArcheonGUI",
+    "productName": "Archeon",
     "linux": {
       "target": [
         "AppImage",

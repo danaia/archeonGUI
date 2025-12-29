@@ -9,7 +9,7 @@
     "build": "CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder --arm64 --mac --dir",
     "build:dmg": "vite build && electron-builder --arm64 --mac dmg",
     "preview": "vite preview",
-    "postinstall": "rm -rf node_modules/@vue/devtools-kit node_modules/@vue/devtools-api || true"
+    "postinstall": "rm -rf node_modules/@vue/devtools-kit node_modules/@vue/devtools-api || true && npx electron-rebuild -f -w node-pty"
   },
   "dependencies": {
     "@xterm/addon-fit": "*",
@@ -40,7 +40,7 @@
   },
   "build": {
     "appId": "com.archeon.gui",
-    "productName": "ArcheonGUI",
+    "productName": "Archeon",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": {
@@ -50,7 +50,8 @@
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "type": "development",
-      "identity": null
+      "identity": null,
+      "icon": "public/icon.iconset/icon.icns"
     },
     "files": [
       "dist/**/*",

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Black background with slight padding to avoid white border on rounded corners -->
+  <rect width="1024" height="1024" fill="#000000" rx="180" ry="180"/>
+  <!-- Blue circle in center -->
+  <circle cx="512" cy="512" r="200" fill="#007AFF"/>
+</svg>
