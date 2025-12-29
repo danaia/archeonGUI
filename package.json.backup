@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
+    "@rollup/rollup-linux-x64-gnu": "^4.53.3",
     "@vitejs/plugin-vue": "^5.0.4",
     "autoprefixer": "^10.4.23",
     "electron": "^33.0.0",
@@ -68,9 +69,5 @@
     "nodeGypRebuild": false,
     "npmRebuild": false,
     "buildDependenciesFromSource": false
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.53.3",
-    "@rollup/rollup-linux-x64-musl": "^4.53.3"
   }
 }
