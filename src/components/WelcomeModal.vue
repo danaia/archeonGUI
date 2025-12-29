@@ -23,6 +23,10 @@ const {
 const dontShowAgain = ref(false);
 const copied = ref(false);
 const isAutoInstalling = ref(false);
+const licenseKey = ref('');
+const isValidatingLicense = ref(false);
+const licenseError = ref('');
+const licenseValid = ref(false);
 
 const WELCOME_STORAGE_KEY = "archeon:hasSeenWelcome";
 
@@ -96,6 +100,48 @@ const resetWelcome = () => {
   localStorage.removeItem(WELCOME_STORAGE_KEY);
 };
 
+// Validate license key
+const validateLicense = async () => {
+  if (!licenseKey.value.trim()) {
+    licenseError.value = 'Please enter a license key';
+    return;
+  }
+
+  isValidatingLicense.value = true;
+  licenseError.value = '';
+  
+  try {
+    // TODO: Implement actual license validation API call
+    // For now, this is a placeholder
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Placeholder validation logic
+    if (licenseKey.value.length >= 16) {
+      licenseValid.value = true;
+      localStorage.setItem('archeon:licenseKey', licenseKey.value);
+      localStorage.setItem('archeon:licenseValid', 'true');
+    } else {
+      licenseError.value = 'Invalid license key format';
+      licenseValid.value = false;
+    }
+  } catch (error) {
+    licenseError.value = 'Failed to validate license. Please try again.';
+    licenseValid.value = false;
+  } finally {
+    isValidatingLicense.value = false;
+  }
+};
+
+// Check for existing license on mount
+onMounted(() => {
+  const savedLicense = localStorage.getItem('archeon:licenseKey');
+  const isValid = localStorage.getItem('archeon:licenseValid') === 'true';
+  if (savedLicense && isValid) {
+    licenseKey.value = savedLicense;
+    licenseValid.value = true;
+  }
+});
+
 // Expose for testing/debugging
 window.__resetWelcome = resetWelcome;
 </script>
@@ -162,8 +208,10 @@ window.__resetWelcome = resetWelcome;
                 Welcome to Archeon
               </h1>
               <p class="text-ui-textMuted text-base">
-                Let's get you started with a few simple steps
+                Companion app to the Archeon CLI.                 Let's get you started with a few simple steps
+
               </p>
+           
             </div>
 
             <!-- Content -->
@@ -248,7 +296,7 @@ window.__resetWelcome = resetWelcome;
                       Target Project
                     </h3>
                     <p class="text-ui-textMuted text-xs leading-relaxed">
-                      Click the folder icon to open or drag your project into Archeon.
+                      Click the folder icon and open a project directory to get started.
                     </p>
                   </div>
                 </div>
@@ -265,7 +313,7 @@ window.__resetWelcome = resetWelcome;
                       Define Shapes & Roles
                     </h3>
                     <p class="text-ui-textMuted text-xs leading-relaxed">
-                      Click "Setup" in the terminal to scaffold your architecture.
+                      Click "Setup" in the terminal (bottom left) to scaffold your architecture.
                     </p>
                   </div>
                 </div>
@@ -330,6 +378,64 @@ window.__resetWelcome = resetWelcome;
                       />
                     </svg>
                     <span class="text-xs">{{ copied ? "Copied" : "Copy" }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- License Key Section -->
+            <div class="px-8 py-6 border-t border-ui-border bg-ui-bgLight/30">
+              <div class="max-w-2xl">
+                <h3 class="text-base font-semibold text-ui-text mb-2 flex items-center gap-2">
+                  <svg class="w-5 h-5 text-ui-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  License Key
+                  <span v-if="licenseValid" class="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+                    ✓ Valid
+                  </span>
+                </h3>
+                <p class="text-ui-textMuted text-xs mb-4">
+                  Enter your license key to unlock all features. 
+                  <a href="#" class="text-white hover:underline">Purchase a license</a>
+                </p>
+                <div class="flex items-start gap-2">
+                  <div class="flex-1">
+                    <input
+                      v-model="licenseKey"
+                      type="text"
+                      placeholder="XXXX-XXXX-XXXX-XXXX"
+                      :disabled="licenseValid"
+                      class="w-full bg-ui-bg px-4 py-3 rounded border border-ui-border text-ui-text placeholder-ui-textMuted font-mono text-sm focus:outline-none focus:border-white/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      @keyup.enter="validateLicense"
+                    />
+                    <p v-if="licenseError" class="text-red-400 text-xs mt-2">
+                      {{ licenseError }}
+                    </p>
+                  </div>
+                  <button
+                    v-if="!licenseValid"
+                    @click="validateLicense"
+                    :disabled="isValidatingLicense || !licenseKey.trim()"
+                    class="px-6 py-3 rounded bg-white hover:bg-gray-100 disabled:bg-gray-500 disabled:cursor-not-allowed text-black font-semibold transition-colors text-sm flex items-center gap-2 shrink-0"
+                  >
+                    <svg
+                      v-if="isValidatingLicense"
+                      class="w-4 h-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {{ isValidatingLicense ? 'Validating...' : 'Validate' }}
+                  </button>
+                  <button
+                    v-else
+                    @click="() => { licenseValid = false; licenseKey = ''; localStorage.removeItem('archeon:licenseKey'); localStorage.removeItem('archeon:licenseValid'); }"
+                    class="px-6 py-3 rounded bg-gray-700 hover:bg-gray-600 text-white font-semibold transition-colors text-sm shrink-0"
+                  >
+                    Change
                   </button>
                 </div>
               </div>
