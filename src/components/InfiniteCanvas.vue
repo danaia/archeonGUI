@@ -163,10 +163,16 @@ const visibleBadges = computed(() => {
     const midWorldY = (sourceCenterY + targetCenterY) / 2;
 
     const screenPos = canvasStore.worldToScreen(midWorldX, midWorldY);
-    
+
     // Pre-compute line endpoints for SVG (avoids recalculating in template)
-    const sourceScreen = canvasStore.worldToScreen(sourceCenterX, sourceCenterY);
-    const targetScreen = canvasStore.worldToScreen(targetCenterX, targetCenterY);
+    const sourceScreen = canvasStore.worldToScreen(
+      sourceCenterX,
+      sourceCenterY
+    );
+    const targetScreen = canvasStore.worldToScreen(
+      targetCenterX,
+      targetCenterY
+    );
 
     // Calculate angle for badge orientation
     const angle = Math.atan2(
@@ -209,16 +215,16 @@ const visibleBadges = computed(() => {
 const gridPatternStyle = computed(() => {
   const cellW = canvasStore.scaledCellWidth;
   const cellH = canvasStore.scaledCellHeight;
-  
+
   // Convert camera world position to screen position
   // The grid pattern offset must match where world (0,0) appears on screen
   const screenOrigin = canvasStore.worldToScreen(0, 0);
-  
+
   // The offset is where the origin grid line appears on the canvas
   // We use modulo to keep it within one grid cell size for CSS pattern
   const offsetX = ((screenOrigin.x % cellW) + cellW) % cellW;
   const offsetY = ((screenOrigin.y % cellH) + cellH) % cellH;
-  
+
   return {
     backgroundImage: `
       linear-gradient(to right, #1a1a1a 1px, transparent 1px),
@@ -234,14 +240,14 @@ function handleWheel(e) {
   if (!uiStore.canvasInteractionsEnabled) return;
   e.preventDefault();
   e.stopPropagation();
-  
+
   // Mark camera as moving to disable CSS transitions during zoom
   isCameraMoving.value = true;
   if (cameraMovingTimeout) clearTimeout(cameraMovingTimeout);
   cameraMovingTimeout = setTimeout(() => {
     isCameraMoving.value = false;
   }, 150);
-  
+
   canvasStore.zoomAt(e.clientX, e.clientY, e.deltaY);
 
   // Debounced save camera on zoom
@@ -265,7 +271,10 @@ function handleMouseDown(e) {
     if (!tileStore.hasTile(gridPos.col, gridPos.row)) {
       // Only open glyph edit modal if Command (Mac) or Control (Win/Linux) key is pressed
       if (e.metaKey || e.ctrlKey) {
-        uiStore.openGlyphEditModal(null, { col: gridPos.col, row: gridPos.row });
+        uiStore.openGlyphEditModal(null, {
+          col: gridPos.col,
+          row: gridPos.row,
+        });
         return;
       }
       // Otherwise, start selection (allow drag-to-select to work)
@@ -280,7 +289,7 @@ function handleMouseMove(e) {
     const deltaY = e.clientY - lastMousePos.value.y;
     canvasStore.pan(deltaX, deltaY);
     lastMousePos.value = { x: e.clientX, y: e.clientY };
-    
+
     // Mark camera as moving to disable CSS transitions
     isCameraMoving.value = true;
     if (cameraMovingTimeout) clearTimeout(cameraMovingTimeout);
@@ -555,7 +564,7 @@ onUnmounted(() => {
     @mouseleave="handleMouseLeave"
   >
     <!-- Grid Lines Layer - CSS Pattern for performance -->
-    <div 
+    <div
       class="absolute inset-0 pointer-events-none opacity-30 gpu-accelerated"
       :style="gridPatternStyle"
     />
@@ -573,7 +582,10 @@ onUnmounted(() => {
     ></div>
 
     <!-- Connection Lines Layer (behind badges) - using pre-computed coordinates -->
-    <svg class="absolute inset-0 w-full h-full pointer-events-none" style="contain: layout style paint;">
+    <svg
+      class="absolute inset-0 w-full h-full pointer-events-none"
+      style="contain: layout style paint"
+    >
       <defs>
         <marker
           id="arrowhead"
@@ -611,7 +623,10 @@ onUnmounted(() => {
     </svg>
 
     <!-- Glyph Tiles Layer -->
-    <div class="absolute inset-0 pointer-events-none" style="contain: layout style;">
+    <div
+      class="absolute inset-0 pointer-events-none"
+      style="contain: layout style"
+    >
       <div
         v-for="tile in visibleTiles"
         :key="tile.id"
@@ -627,7 +642,14 @@ onUnmounted(() => {
           isCameraMoving ? '' : 'tile-transition',
         ]"
         :style="{
-          transform: `translate3d(${tile.screenX}px, ${tile.screenY}px, 0) ${tile.isHovered && !tile.isSelected && !tile.isMultiSelected && !isCameraMoving ? 'scale(1.02)' : ''}`,
+          transform: `translate3d(${tile.screenX}px, ${tile.screenY}px, 0) ${
+            tile.isHovered &&
+            !tile.isSelected &&
+            !tile.isMultiSelected &&
+            !isCameraMoving
+              ? 'scale(1.02)'
+              : ''
+          }`,
           width: tile.width + 'px',
           height: tile.height + 'px',
           backgroundColor: tile.typeInfo?.bgColor || '#252538',
@@ -782,7 +804,9 @@ onUnmounted(() => {
             </span>
             <template #content>
               <div class="space-y-1.5">
-                <div class="font-semibold text-blue-300 flex items-center gap-2">
+                <div
+                  class="font-semibold text-blue-300 flex items-center gap-2"
+                >
                   <span>{{ tile.glyphType }}: {{ tile.name }}</span>
                 </div>
                 <p class="text-slate-300 leading-relaxed whitespace-normal">
@@ -819,7 +843,9 @@ onUnmounted(() => {
           title="Collapsed - double-click to expand"
         >
           <span>▶</span>
-          <span v-if="tile.descendantCount > 0">{{ tile.descendantCount }}</span>
+          <span v-if="tile.descendantCount > 0">{{
+            tile.descendantCount
+          }}</span>
         </div>
 
         <!-- Layer indicator -->
@@ -838,7 +864,10 @@ onUnmounted(() => {
     </div>
 
     <!-- Relationship Badges Layer -->
-    <div class="absolute inset-0 pointer-events-none" style="contain: layout style;">
+    <div
+      class="absolute inset-0 pointer-events-none"
+      style="contain: layout style"
+    >
       <div
         v-for="badge in visibleBadges"
         :key="'badge-' + badge.id"
@@ -852,7 +881,15 @@ onUnmounted(() => {
           isCameraMoving ? '' : 'badge-transition',
         ]"
         :style="{
-          transform: `translate3d(${badge.screenX - badge.size / 2}px, ${badge.screenY - badge.size / 2}px, 0) ${badge.isSelected ? 'scale(1.1)' : badge.isHovered && !isCameraMoving ? 'scale(1.05)' : ''}`,
+          transform: `translate3d(${badge.screenX - badge.size / 2}px, ${
+            badge.screenY - badge.size / 2
+          }px, 0) ${
+            badge.isSelected
+              ? 'scale(1.1)'
+              : badge.isHovered && !isCameraMoving
+              ? 'scale(1.05)'
+              : ''
+          }`,
           width: badge.size + 'px',
           height: badge.size + 'px',
           backgroundColor: badge.edgeInfo?.color || '#6366f1',
@@ -893,7 +930,11 @@ onUnmounted(() => {
 
     <!-- Validation Status Indicator -->
     <div
-      v-if="['validating', 'valid', 'invalid'].includes(uiStore.validationStatus.status)"
+      v-if="
+        ['validating', 'valid', 'invalid'].includes(
+          uiStore.validationStatus.status
+        )
+      "
       class="absolute top-[72px] right-3"
       @mousedown.stop
       @click.stop
@@ -1140,7 +1181,8 @@ onUnmounted(() => {
 }
 
 .tile-transition {
-  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, border-color 0.15s ease-out;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out,
+    border-color 0.15s ease-out;
 }
 
 /* GPU-accelerated badges */
