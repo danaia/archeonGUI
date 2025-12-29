@@ -140,7 +140,9 @@ export function useSetup() {
   }
 
   function selectShape(shapeId) {
-    selectedShape.value = shapeId === selectedShape.value ? null : shapeId;
+    const wasSelected = selectedShape.value === shapeId;
+    selectedShape.value = wasSelected ? null : shapeId;
+    console.log(`[selectShape] Shape selected: ${shapeId}, was previously selected: ${wasSelected}, now selected: ${selectedShape.value}`);
   }
 
   function toggleIDERule(ruleId) {
@@ -156,6 +158,7 @@ export function useSetup() {
   async function scaffoldWithShape() {
     if (!window.electronAPI || !terminalStore.ptyId || !selectedShape.value) {
       setupError.value = "Terminal not available or no shape selected.";
+      console.log('[scaffoldWithShape] Error: Terminal not available or no shape selected');
       return;
     }
 
@@ -164,8 +167,16 @@ export function useSetup() {
       localStorage.getItem("archeon:lastProjectPath");
     if (!projectPath) {
       setupError.value = "No project selected. Please open a project first.";
+      console.log('[scaffoldWithShape] Error: No project path found');
       return;
     }
+
+    const shapeName =
+      shapeOptions.value.find((s) => s.id === selectedShape.value)?.name ||
+      selectedShape.value;
+
+    console.log(`[scaffoldWithShape] Scaffolding with shape: ${selectedShape.value} (${shapeName})`);
+    console.log(`[scaffoldWithShape] Project path: ${projectPath}`);
 
     // Build the command with optional IDE flags
     let command = `cd "${projectPath}" && archeon init --arch ${selectedShape.value}`;
@@ -177,6 +188,8 @@ export function useSetup() {
       }
     }
 
+    console.log(`[scaffoldWithShape] Full command: ${command}`);
+
     closeModal();
 
     if (!terminalStore.isExpanded) {
@@ -185,12 +198,10 @@ export function useSetup() {
 
     setTimeout(() => {
       window.electronAPI.ptyWrite(terminalStore.ptyId, command + "\n");
+      console.log(`[scaffoldWithShape] Command sent to PTY ${terminalStore.ptyId}`);
     }, 300);
 
-    const shapeName =
-      shapeOptions.value.find((s) => s.id === selectedShape.value)?.name ||
-      selectedShape.value;
-    uiStore.addToast(`Scaffolding project...`, "info", 7000);
+    uiStore.addToast(`Scaffolding project with ${shapeName}...`, "info", 7000);
   }
 
   // Install pipx and continue

@@ -304,178 +304,65 @@ ipcMain.handle("shell:openFile", async (event, projectPath, filePath) => {
 
 // Load available shapes from Archeon's architectures directory
 ipcMain.handle("archeon:getShapes", async () => {
-  const fs = await import("fs/promises");
   const homeDir = os.homedir();
+  const fs = await import("fs/promises");
+  const pathModule = await import("path");
   
-  // Support custom PIPX_HOME if set, otherwise use default
-  const pipxHome = process.env.PIPX_HOME || path.join(homeDir, '.local/pipx');
-  
-  const expandedPath = [
-    `${homeDir}/.local/bin`,
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
-    process.env.PATH
-  ].join(':');
+  // Look for shapes in pipx install directory
+  const pipxArchDir = `${homeDir}/.local/pipx/venvs/archeon/lib`;
   
   try {
-    // Search for architectures directory in known locations
-    let architecturesDir = null;
+    // Find the python version directory
+    const libContents = await fs.readdir(pipxArchDir);
+    const pythonDir = libContents.find(d => d.startsWith('python'));
     
-    // 1. Try pipx venv location first (most common for pipx installs)
-    // Works on both macOS and Linux - uses PIPX_HOME or default ~/.local/pipx
-    const pipxVenvBase = path.join(pipxHome, 'venvs/archeon/lib');
-    try {
-      const pipxLibEntries = await fs.readdir(pipxVenvBase);
-      for (const pyDir of pipxLibEntries) {
-        if (pyDir.startsWith('python')) {
-          const testPath = path.join(pipxVenvBase, pyDir, 'site-packages/archeon/architectures');
-          try {
-            await fs.access(testPath);
-            architecturesDir = testPath;
-            console.log('[getShapes] Found architectures in pipx venv:', testPath);
-            break;
-          } catch {}
-        }
-      }
-    } catch (e) {
-      console.log('[getShapes] pipx venv not found at:', pipxVenvBase);
+    if (!pythonDir) {
+      throw new Error('Could not find Python directory in pipx venv');
     }
     
-    // 2. Try using pipx runpip to get location
-    if (!architecturesDir) {
-      try {
-        const { stdout } = await execAsync(
-          'pipx runpip archeon show archeon',
-          { timeout: 10000, env: { ...process.env, PATH: expandedPath } }
-        );
-        const locationMatch = stdout.match(/Location:\s*(.+)/);
-        if (locationMatch) {
-          const testPath = path.join(locationMatch[1].trim(), 'archeon/architectures');
-          try {
-            await fs.access(testPath);
-            architecturesDir = testPath;
-            console.log('[getShapes] Found architectures via pipx runpip:', testPath);
-          } catch {}
-        }
-      } catch (e) {
-        console.log('[getShapes] pipx runpip failed:', e.message);
-      }
-    }
+    const architecturesDir = pathModule.join(
+      pipxArchDir, 
+      pythonDir, 
+      'site-packages/archeon/architectures'
+    );
     
-    // 3. Try to find archeon binary and trace back to package
-    if (!architecturesDir) {
-      try {
-        const { stdout: archeonBin } = await execAsync(
-          'which archeon || echo ~/.local/bin/archeon',
-          { timeout: 5000, env: { ...process.env, PATH: expandedPath } }
-        );
-        const binPath = archeonBin.trim().replace(/^~/, homeDir);
-        
-        // Read the shebang or follow symlink to find the venv
-        const realPath = await fs.realpath(binPath).catch(() => binPath);
-        console.log('[getShapes] archeon binary at:', realPath);
-        
-        // If it's in a pipx venv, the path will be like:
-        // ~/.local/pipx/venvs/archeon/bin/archeon
-        if (realPath.includes('pipx/venvs/archeon')) {
-          const venvRoot = realPath.split('/bin/')[0];
-          const libPath = path.join(venvRoot, 'lib');
-          const libEntries = await fs.readdir(libPath);
-          for (const pyDir of libEntries) {
-            if (pyDir.startsWith('python')) {
-              const testPath = path.join(libPath, pyDir, 'site-packages/archeon/architectures');
-              try {
-                await fs.access(testPath);
-                architecturesDir = testPath;
-                console.log('[getShapes] Found architectures via binary path:', testPath);
-                break;
-              } catch {}
-            }
-          }
-        }
-      } catch (e) {
-        console.log('[getShapes] Could not trace archeon binary:', e.message);
-      }
-    }
-    
-    // 4. Fallback: check common system locations
-    if (!architecturesDir) {
-      const fallbackPaths = [
-        path.join(homeDir, '.local/lib/python3.13/site-packages/archeon/architectures'),
-        path.join(homeDir, '.local/lib/python3.12/site-packages/archeon/architectures'),
-        path.join(homeDir, '.local/lib/python3.11/site-packages/archeon/architectures'),
-        '/usr/local/lib/python3.13/site-packages/archeon/architectures',
-        '/usr/local/lib/python3.12/site-packages/archeon/architectures',
-        '/opt/homebrew/lib/python3.13/site-packages/archeon/architectures',
-        '/opt/homebrew/lib/python3.12/site-packages/archeon/architectures',
-      ];
-      
-      for (const testPath of fallbackPaths) {
-        try {
-          await fs.access(testPath);
-          architecturesDir = testPath;
-          console.log('[getShapes] Found architectures in fallback path:', testPath);
-          break;
-        } catch {}
-      }
-    }
-    
-    if (!architecturesDir) {
-      console.log('[getShapes] No architectures directory found');
-      return { success: false, error: 'Archeon architectures not found. Try reinstalling CLI.', shapes: [] };
-    }
-    
-    console.log('[getShapes] Using architectures directory:', architecturesDir);
-    
-    // Read the architectures directory - look for .shape.json files
-    const entries = await fs.readdir(architecturesDir, { withFileTypes: true });
+    // Read all .shape.json files
+    const files = await fs.readdir(architecturesDir);
+    const shapeFiles = files.filter(f => f.endsWith('.shape.json'));
     const shapes = [];
     
-    for (const entry of entries) {
-      // Skip directories and non-shape files
-      if (entry.isDirectory()) continue;
-      if (!entry.name.endsWith('.shape.json')) continue;
+    for (const file of shapeFiles) {
+      const filePath = pathModule.join(architecturesDir, file);
+      const content = await fs.readFile(filePath, 'utf-8');
+      const shapeData = JSON.parse(content);
       
-      const shapeFilePath = path.join(architecturesDir, entry.name);
-      const shapeId = entry.name.replace('.shape.json', '');
+      // Extract shape info from the JSON
+      const id = file.replace('.shape.json', '');
+      const shape = {
+        id,
+        name: shapeData.name || id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' + '),
+        description: shapeData.description || `${id} architecture template`,
+        icon: '📦',
+        tags: shapeData.tags || []
+      };
       
-      try {
-        // Read and parse the shape JSON file
-        const content = await fs.readFile(shapeFilePath, 'utf-8');
-        const shapeData = JSON.parse(content);
-        
-        // Extract metadata from the shape file
-        const metadata = {
-          id: shapeId,
-          name: shapeData.name || shapeId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-          description: shapeData.description || `${shapeId} architecture template`,
-          icon: shapeData.icon || '📦',
-          tags: shapeData.tags || []
-        };
-        
-        // Infer tags from id if empty
-        if (metadata.tags.length === 0) {
-          if (shapeId.includes('vue')) metadata.tags.push('Vue');
-          if (shapeId.includes('react')) metadata.tags.push('React');
-          if (shapeId.includes('nextjs') || shapeId.includes('next')) metadata.tags.push('Next.js');
-          if (shapeId.includes('fastapi')) metadata.tags.push('FastAPI', 'Python');
-          if (shapeId.includes('express')) metadata.tags.push('Express', 'Node.js');
-          if (shapeId.includes('django')) metadata.tags.push('Django', 'Python');
-          if (shapeId.includes('mongo')) metadata.tags.push('MongoDB');
-        }
-        
-        shapes.push(metadata);
-        console.log('[getShapes] Loaded shape:', shapeId);
-      } catch (parseError) {
-        console.warn('[getShapes] Failed to parse shape file:', entry.name, parseError.message);
+      // Add inferred tags if none provided
+      if (shape.tags.length === 0) {
+        if (id.includes('vue')) shape.tags.push('Vue 3');
+        if (id.includes('react')) shape.tags.push('React');
+        if (id.includes('nextjs') || id.includes('next')) shape.tags.push('Next.js');
+        if (id.includes('fastapi')) shape.tags.push('FastAPI', 'Python');
+        if (id.includes('express')) shape.tags.push('Express', 'Node.js');
+        if (id.includes('capacitor')) shape.tags.push('Capacitor', 'Mobile');
       }
+      
+      shapes.push(shape);
     }
     
-    console.log('[getShapes] Total shapes found:', shapes.length);
     return { success: true, shapes, path: architecturesDir };
     
   } catch (error) {
-    console.error('[getShapes] Error:', error);
+    console.error('[getShapes] Error:', error.message);
     return { success: false, error: error.message, shapes: [] };
   }
 });

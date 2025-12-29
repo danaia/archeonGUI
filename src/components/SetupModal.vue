@@ -71,6 +71,16 @@ onMounted(() => {
     initChecks();
   }
 });
+
+// Auto-load shapes when selecting shapes method
+watch(
+  () => installMethod.value,
+  (method) => {
+    if (method === "shapes" && isCLIInstalled.value && shapeOptions.value.length === 0) {
+      loadShapes();
+    }
+  }
+);
 </script>
 
 <template>
