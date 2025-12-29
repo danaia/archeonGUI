@@ -72,7 +72,7 @@ async function handleSave() {
 
   try {
     const tile = uiStore.editingTile;
-    
+
     if (tile) {
       // Update existing tile
       await tileStore.updateTileGlyph(
@@ -84,13 +84,40 @@ async function handleSave() {
       );
     } else if (uiStore.editingGridPosition) {
       // Create new tile at grid position
-      await tileStore.createTileFromModal(
+      const newTile = await tileStore.createTileFromModal(
         uiStore.editingGridPosition.col,
         uiStore.editingGridPosition.row,
         selectedGlyphType.value,
         tileName.value.trim(),
         intent.value.trim()
       );
+
+      // Auto-create edge relationships to adjacent tiles on the same row
+      const { useRelationshipStore } = await import("../stores");
+      const relationshipStore = useRelationshipStore();
+
+      const col = newTile.col;
+      const row = newTile.row;
+
+      // Connect to left neighbor (if exists)
+      const leftTile = tileStore.getTile(col - 1, row);
+      if (leftTile) {
+        relationshipStore.createRelationship(
+          tileStore.getTileKey(col - 1, row),
+          newTile.id,
+          "FLOW"
+        );
+      }
+
+      // Connect to right neighbor (if exists)
+      const rightTile = tileStore.getTile(col + 1, row);
+      if (rightTile) {
+        relationshipStore.createRelationship(
+          newTile.id,
+          tileStore.getTileKey(col + 1, row),
+          "FLOW"
+        );
+      }
     } else {
       throw new Error("No tile or grid position to edit");
     }
@@ -209,7 +236,9 @@ function handleBackdropClick() {
                     :label="layer.toUpperCase()"
                   >
                     <option
-                      v-for="glyph in glyphOptions.filter((g) => g.layer === layer)"
+                      v-for="glyph in glyphOptions.filter(
+                        (g) => g.layer === layer
+                      )"
                       :key="glyph.id"
                       :value="glyph.id"
                     >
@@ -230,7 +259,10 @@ function handleBackdropClick() {
                   <div class="flex items-center gap-2">
                     <span class="text-2xl">{{ selectedGlyph.icon }}</span>
                     <div class="flex-1">
-                      <p class="text-sm font-medium" :style="{ color: selectedGlyph.color }">
+                      <p
+                        class="text-sm font-medium"
+                        :style="{ color: selectedGlyph.color }"
+                      >
                         {{ selectedGlyph.id }}: {{ selectedGlyph.name }}
                       </p>
                       <p class="text-xs text-ui-textMuted">
@@ -252,7 +284,11 @@ function handleBackdropClick() {
                   placeholder="e.g., LoginForm, Auth, UserAPI"
                   class="w-full px-3 py-2 bg-ui-bgLight border border-ui-border rounded-lg text-ui-text placeholder:text-ui-textMuted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   :disabled="isSaving"
-                  @keydown.stop="(e) => { if (e.key === 'Enter') handleSave(); }"
+                  @keydown.stop="
+                    (e) => {
+                      if (e.key === 'Enter') handleSave();
+                    }
+                  "
                 />
               </div>
 

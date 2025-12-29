@@ -263,7 +263,7 @@ class I {
     for (const r of t) {
       const a = r.trim();
       if (!a || a.startsWith("#")) continue;
-      const i = a.match(/^@(\w+)\s+(.+)$/);
+      const i = a.match(/^@([\w-]+)\s+(.+)$/);
       if (i) {
         const c = i[1], u = i[2], l = this.parseChainGlyphs(u);
         for (const p of l) {

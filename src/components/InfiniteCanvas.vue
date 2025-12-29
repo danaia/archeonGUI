@@ -261,11 +261,15 @@ function handleMouseDown(e) {
     const worldPos = canvasStore.screenToWorld(e.clientX, e.clientY);
     const gridPos = canvasStore.worldToGrid(worldPos.x, worldPos.y);
 
-    // Check if clicking on empty tile
+    // Check if clicking on empty tile with Cmd/Ctrl key held
     if (!tileStore.hasTile(gridPos.col, gridPos.row)) {
-      // Open glyph edit modal for creating a new tile
-      uiStore.openGlyphEditModal(null, { col: gridPos.col, row: gridPos.row });
-      return;
+      // Only open glyph edit modal if Command (Mac) or Control (Win/Linux) key is pressed
+      if (e.metaKey || e.ctrlKey) {
+        uiStore.openGlyphEditModal(null, { col: gridPos.col, row: gridPos.row });
+        return;
+      }
+      // Otherwise, start selection (allow drag-to-select to work)
+      startSelection(e.clientX, e.clientY);
     }
   }
 }

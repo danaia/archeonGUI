@@ -31,7 +31,7 @@ const relationshipStore = useRelationshipStore();
 const canvasStore = useCanvasStore();
 
 const isElectron = computed(() => !!window.electronAPI);
-const isMac = computed(() => navigator.platform.includes('Mac'));
+const isMac = computed(() => navigator.platform.includes("Mac"));
 const projectName = computed(() => projectStore.projectName);
 const hasProject = computed(() => !!projectStore.projectPath);
 
@@ -42,7 +42,7 @@ const isUpdating = ref(false);
 const displayPath = computed(() => projectStore.projectPath);
 
 // Global keyboard shortcuts
-function handleGlobalKeydown(e) {
+async function handleGlobalKeydown(e) {
   // Backtick to toggle terminal
   if (e.key === "`" && !e.ctrlKey && !e.metaKey && !e.altKey) {
     // Don't trigger if typing in an input
@@ -117,7 +117,22 @@ function handleGlobalKeydown(e) {
         tileStore.selectedTileKey || tileStore.selectedTileKeys.size > 0;
       if (hasSelection) {
         e.preventDefault();
-        tileStore.deleteSelectedTiles(relationshipStore);
+        const deletedCount = tileStore.deleteSelectedTiles(relationshipStore);
+
+        // Save changes to .arcon file if project is open
+        if (deletedCount > 0 && projectStore.projectPath) {
+          try {
+            await tileStore.saveToArcon(projectStore.projectPath);
+            uiStore.addToast(
+              `Deleted ${deletedCount} tile${deletedCount > 1 ? "s" : ""}`,
+              "success",
+              2000
+            );
+          } catch (err) {
+            console.error("Failed to save .arcon after delete:", err);
+            uiStore.addToast("Failed to save changes", "error");
+          }
+        }
       }
     }
   }
@@ -203,7 +218,9 @@ onMounted(async () => {
       // Check if setup modal should be shown
       // Show if CLI is not installed AND project has no /archeon directory
       try {
-        const cliResult = await window.electronAPI.checkCommand('archeon --version');
+        const cliResult = await window.electronAPI.checkCommand(
+          "archeon --version"
+        );
         const cliInstalled = cliResult.success;
 
         if (!cliInstalled && projectStore.projectPath) {

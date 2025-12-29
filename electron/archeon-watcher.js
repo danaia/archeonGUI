@@ -200,7 +200,8 @@ export class ArcheonWatcher {
       if (!trimmed || trimmed.startsWith("#")) continue;
 
       // Match versioned chains: @v1 NED:login => CMP:Form => ...
-      const versionMatch = trimmed.match(/^@(\w+)\s+(.+)$/);
+      // Also support versions with hyphens like @v-1, @v-2
+      const versionMatch = trimmed.match(/^@([\w-]+)\s+(.+)$/);
       if (versionMatch) {
         const version = versionMatch[1];
         const chainDef = versionMatch[2];

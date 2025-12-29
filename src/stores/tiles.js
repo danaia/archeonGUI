@@ -6,6 +6,10 @@ import { GLYPH_TYPES } from "../types/glyphs.js";
 const LAYOUT_STORAGE_PREFIX = "archeon:layout:";
 const LAYOUT_VERSION = 1;
 
+// Track our own writes to prevent sync loops
+let lastArconWriteTime = 0;
+const WRITE_DEBOUNCE_MS = 1000; // Ignore file changes within 1 second of our write
+
 /**
  * Get storage key for a project path
  * @param {string} projectPath - Project root path
@@ -991,6 +995,9 @@ export const useTileStore = defineStore("tiles", () => {
       throw new Error("Electron API not available");
     }
 
+    // Track this write to prevent sync loop
+    lastArconWriteTime = Date.now();
+
     const result = await window.electronAPI.archeonWriteArcon(
       projectPath,
       content
@@ -1001,6 +1008,15 @@ export const useTileStore = defineStore("tiles", () => {
     }
 
     return result;
+  }
+
+  /**
+   * Check if we should skip a sync because it's from our own write
+   * @returns {boolean} - True if we should skip the sync
+   */
+  function shouldSkipSync() {
+    const timeSinceWrite = Date.now() - lastArconWriteTime;
+    return timeSinceWrite < WRITE_DEBOUNCE_MS;
   }
 
   /**
@@ -1123,10 +1139,13 @@ export const useTileStore = defineStore("tiles", () => {
       }
 
       // Restore collapsed tiles state (convert from label:chainIndex to tile keys)
-      if (layoutData.collapsedTiles && Array.isArray(layoutData.collapsedTiles)) {
+      if (
+        layoutData.collapsedTiles &&
+        Array.isArray(layoutData.collapsedTiles)
+      ) {
         const collapsedSet = new Set(layoutData.collapsedTiles);
         collapsedTiles.value.clear();
-        
+
         // Find tiles matching the saved label:chainIndex and add their current keys
         for (const tile of tiles.value.values()) {
           const lookupKey = `${tile.label}:${tile.chainIndex}`;
@@ -1218,6 +1237,7 @@ export const useTileStore = defineStore("tiles", () => {
     getTile,
     getChain,
     hasTile,
+    shouldSkipSync,
     selectTile,
     deselectTile,
     setHoveredTile,

@@ -37,6 +37,13 @@ export function initArcheonSync() {
   window.electronAPI.onArcheonArconChanged((data) => {
     projectStore.updateArconData(data);
     if (data.success) {
+      // Check if this change is from our own write (skip sync to prevent clearing just-added tiles)
+      const tileStore = useTileStore();
+      if (tileStore.shouldSkipSync()) {
+        console.log("Archeon sync: Skipping sync - change from our own write");
+        return;
+      }
+
       // Arcon changes define the structure (pending glyphs)
       syncChainsToTiles(data.chains);
       // Then check index for any already-confirmed glyphs
