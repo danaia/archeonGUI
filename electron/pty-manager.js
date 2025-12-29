@@ -55,11 +55,17 @@ export class PtyManager {
    */
   spawn(options = {}) {
     const shell = this.getShell();
-    const cwd = options.cwd || os.homedir();
+    let cwd = options.cwd || os.homedir();
     const cols = options.cols || 80;
     const rows = options.rows || 24;
     const platform = os.platform();
     const homeDir = os.homedir();
+
+    // Validate that cwd exists, fall back to home if it doesn't
+    if (!fs.existsSync(cwd)) {
+      console.warn(`[PTY] Requested directory doesn't exist: ${cwd}, falling back to home`);
+      cwd = homeDir;
+    }
 
     console.log(`[PTY] Spawning shell: ${shell}`);
     console.log(`[PTY] Working directory: ${cwd}`);

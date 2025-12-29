@@ -6,7 +6,7 @@ import { exec as $ } from "child_process";
 import { promisify as M } from "util";
 import O from "node-pty";
 import F from "fs";
-import C from "chokidar";
+import S from "chokidar";
 import x from "fs/promises";
 class H {
   constructor(e) {
@@ -49,8 +49,10 @@ class H {
    * @returns {Object} - { id, pid }
    */
   spawn(e = {}) {
-    const s = this.getShell(), t = e.cwd || E.homedir(), n = e.cols || 80, r = e.rows || 24, a = E.platform(), i = E.homedir();
-    console.log(`[PTY] Spawning shell: ${s}`), console.log(`[PTY] Working directory: ${t}`), console.log(`[PTY] Platform: ${a}`);
+    const s = this.getShell();
+    let t = e.cwd || E.homedir();
+    const n = e.cols || 80, r = e.rows || 24, a = E.platform(), i = E.homedir();
+    F.existsSync(t) || (console.warn(`[PTY] Requested directory doesn't exist: ${t}, falling back to home`), t = i), console.log(`[PTY] Spawning shell: ${s}`), console.log(`[PTY] Working directory: ${t}`), console.log(`[PTY] Platform: ${a}`);
     const c = [
       `${i}/.local/bin`,
       // pipx installs here
@@ -95,8 +97,8 @@ class H {
       }), P = this.nextId++;
       return this.terminals.set(P, w), w.onData((b) => {
         this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("pty:data", { id: P, data: b });
-      }), w.onExit(({ exitCode: b, signal: R }) => {
-        this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("pty:exit", { id: P, exitCode: b, signal: R }), this.terminals.delete(P);
+      }), w.onExit(({ exitCode: b, signal: L }) => {
+        this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents.send("pty:exit", { id: P, exitCode: b, signal: L }), this.terminals.delete(P);
       }), { id: P, pid: w.pid };
     } catch (w) {
       throw console.error(`Failed to spawn PTY with shell ${s}:`, w), new Error(`PTY spawn failed: ${w.message}`);
@@ -168,7 +170,7 @@ class I {
       success: !1,
       error: "archeon/ directory not found"
     };
-    return t && (n = await this.readIndexFile(e), r = await this.readArconFile(e)), this.rootWatcher = C.watch(e, {
+    return t && (n = await this.readIndexFile(e), r = await this.readArconFile(e)), this.rootWatcher = S.watch(e, {
       persistent: !0,
       ignoreInitial: !0,
       depth: 0
@@ -187,7 +189,7 @@ class I {
    */
   async startArcheonWatcher(e) {
     const s = f.join(e, "archeon");
-    this.watcher && await this.watcher.close(), this.watcher = C.watch(s, {
+    this.watcher && await this.watcher.close(), this.watcher = S.watch(s, {
       persistent: !0,
       ignoreInitial: !1,
       // Process existing files on start
@@ -357,9 +359,9 @@ class I {
     this.watcher && (this.watcher.close(), this.watcher = null), this.rootWatcher && (this.rootWatcher.close(), this.rootWatcher = null), this.projectPath = null;
   }
 }
-const k = M($), W = f.dirname(T(import.meta.url));
+const W = M($), k = f.dirname(T(import.meta.url));
 console.log("=== Electron Environment ===");
-console.log("__dirname:", W);
+console.log("__dirname:", k);
 console.log("app.isPackaged:", g.isPackaged);
 console.log("process.resourcesPath:", process.resourcesPath);
 console.log("app.getAppPath():", g.getAppPath());
@@ -368,14 +370,14 @@ let y = null, A = null, v = null;
 process.platform === "darwin" && (g.commandLine.appendSwitch("enable-gpu-rasterization"), g.commandLine.appendSwitch("enable-zero-copy"), g.commandLine.appendSwitch("ignore-gpu-blocklist"), g.commandLine.appendSwitch("disable-software-rasterizer"));
 g.commandLine.appendSwitch("js-flags", "--max-old-space-size=2048");
 g.commandLine.appendSwitch("disable-renderer-backgrounding");
-function L() {
+function R() {
   if (y = new j({
     width: 1600,
     height: 1e3,
     minWidth: 1024,
     minHeight: 768,
     webPreferences: {
-      preload: f.join(W, "preload.js"),
+      preload: f.join(k, "preload.js"),
       contextIsolation: !0,
       nodeIntegration: !1,
       // Performance optimizations
@@ -409,7 +411,7 @@ function L() {
     };
     o();
   } else {
-    const o = g.isPackaged ? f.join(g.getAppPath(), "dist/index.html") : f.join(W, "../dist/index.html");
+    const o = g.isPackaged ? f.join(g.getAppPath(), "dist/index.html") : f.join(k, "../dist/index.html");
     console.log("Loading index.html from:", o), y.loadFile(o).then(() => {
       console.log("index.html loaded successfully");
     }).catch((e) => {
@@ -450,7 +452,7 @@ d.handle("archeon:readIndex", async (o, e) => v.readIndexFile(e));
 d.handle("archeon:readArcon", async (o, e) => v.readArconFile(e));
 d.handle("archeon:writeArcon", async (o, e, s) => v.writeArconFile(e, s));
 d.handle("rules:copyTemplates", async (o, { files: e, targetDir: s }) => {
-  const t = await import("fs/promises"), r = process.env.VITE_DEV_SERVER_URL ? f.join(W, "..", "rules_templates") : f.join(process.resourcesPath, "rules_templates"), a = { created: [], failed: [] };
+  const t = await import("fs/promises"), r = process.env.VITE_DEV_SERVER_URL ? f.join(k, "..", "rules_templates") : f.join(process.resourcesPath, "rules_templates"), a = { created: [], failed: [] };
   for (const i of e) {
     const c = f.join(r, i), u = f.join(s, i);
     try {
@@ -481,7 +483,7 @@ d.handle("fs:writeFile", async (o, e, s) => {
 });
 d.handle("shell:exec", async (o, e, s = {}) => {
   try {
-    const { stdout: t, stderr: n } = await k(e, {
+    const { stdout: t, stderr: n } = await W(e, {
       timeout: 6e4,
       ...s
     });
@@ -506,7 +508,7 @@ d.handle("shell:openFile", async (o, e, s) => {
   try {
     const t = f.join(e, s);
     try {
-      return await k(`code "${t}"`), { success: !0 };
+      return await W(`code "${t}"`), { success: !0 };
     } catch {
       return await D.openPath(t), { success: !0 };
     }
@@ -580,7 +582,7 @@ d.handle("shell:checkCommand", async (o, e) => {
       process.env.PATH
     ].join(":"), n = e.replace(/^~/, s).replace(/\s~\//g, ` ${s}/`);
     console.log(`[checkCommand] Original: ${e}`), console.log(`[checkCommand] Expanded: ${n}`);
-    const { stdout: r } = await k(n, {
+    const { stdout: r } = await W(n, {
       timeout: 5e3,
       env: { ...process.env, PATH: t }
     });
@@ -653,7 +655,7 @@ d.handle("fs:readPackageJson", async (o, e) => {
     return { success: !1, error: n.message };
   }
 });
-function S(o, e) {
+function C(o, e) {
   const s = [
     "boundary.vDataFlow"
     // Views in data flow are allowed
@@ -677,7 +679,7 @@ d.handle("archeon:validate", async (o, e) => {
   if (!e)
     return { success: !1, error: "No project path provided" };
   try {
-    const { stdout: n, stderr: r } = await k("arc validate", {
+    const { stdout: n, stderr: r } = await W("arc validate", {
       cwd: e,
       timeout: 3e4
       // 30 second timeout
@@ -690,7 +692,7 @@ d.handle("archeon:validate", async (o, e) => {
     const m = a.matchAll(/•\s*WARN:[^\n]+/g);
     for (const b of m)
       h.push(b[0].replace("• ", ""));
-    const w = S(l, h);
+    const w = C(l, h);
     return l = w.errors, h = w.warnings, {
       success: !0,
       isValid: l.length === 0,
@@ -710,7 +712,7 @@ d.handle("archeon:validate", async (o, e) => {
     const u = r.matchAll(/•\s*WARN:[^\n]+/g);
     for (const h of u)
       c.push(h[0].replace("• ", ""));
-    const l = S(a, c);
+    const l = C(a, c);
     a = l.errors, c = l.warnings;
     const p = a.length === 0;
     return (s = n.message) != null && s.includes("not found") || (t = n.message) != null && t.includes("ENOENT") ? {
@@ -725,10 +727,10 @@ d.handle("archeon:validate", async (o, e) => {
     };
   }
 });
-g.whenReady().then(L);
+g.whenReady().then(R);
 g.on("window-all-closed", () => {
   process.platform !== "darwin" && g.quit();
 });
 g.on("activate", () => {
-  j.getAllWindows().length === 0 && L();
+  j.getAllWindows().length === 0 && R();
 });
