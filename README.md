@@ -30,6 +30,7 @@ ArcheonGUI is **completely IDE-agnostic** — use it alongside your favorite dev
 | **Windsurf** | Codeium AI integration | `.windsurfrules`, `.windsurf/README.md` |
 | **Cline** | Claude-powered assistant | `.clinerules`, `.cline/README.md` |
 | **Aider** | Terminal-based AI coding | `.aider.conf.yml`, `.aider/README.md` |
+| **Antigravity** | AI agent rules | `.agent/rules/archeon.md` |
 | **GitHub Copilot** | Works in any supported editor | `.github/copilot-instructions.md` |
 | **Any Editor** | Manual `.arcon` editing | `archeon/ARCHEON.arcon` |
 
@@ -38,11 +39,23 @@ ArcheonGUI is **completely IDE-agnostic** — use it alongside your favorite dev
 ArcheonGUI includes a built-in **Setup Modal** that configures AI rules for your preferred IDE in seconds:
 
 1. Open the terminal (`` ` ``)
-2. Click **"Setup"**
-3. Select your IDE(s)
-4. Click **"Apply Setup"**
+2. Click the **"Setup"** button in the terminal panel
+3. Choose a setup mode: **Rules Only**, **Install CLI**, or **Shapes**
+4. Select your IDE(s) from the checkboxes (GitHub Copilot, Cursor, Windsurf, Cline, Aider, Antigravity)
+5. Click **"Scaffold Project"**
 
 That's it! Your AI assistant now understands your project's architecture.
+
+### Add Archeon to an Existing Project
+
+Already have a project? Use **Rules Only** mode to add AI assistant rules without any other dependencies:
+
+1. Open the terminal and click **"Setup"**
+2. Select **"Rules Only"**
+3. Choose which IDE rules to install
+4. Click **"Apply Setup"**
+
+This adds the necessary configuration files (e.g., `.cursorrules`, `.github/copilot-instructions.md`) so your AI assistant understands Archeon notation—no CLI installation required.
 
 ---
 
