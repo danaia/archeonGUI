@@ -1,56 +1,132 @@
 # ArcheonGUI
 
-**Electron desktop application for visualizing and interacting with Archeon architecture graphs.**
+**A standalone desktop application for visualizing project architectures in real-time.**
 
-ArcheonGUI is a real-time, interactive grid-based viewer for [Archeon](https://github.com/danaia/archeon) projects. It watches your `archeon/` directory for changes and instantly updates the visual graph as you define chains, glyphs, and relationships.
+ArcheonGUI monitors your project's `archeon/` directory and instantly updates a visual graph as your architecture evolves. No command-line tools required — just open your project and see your architecture come to life.
+
+<p align="center">
+  <img src="./public/images/Screenshot 2025-12-30 at 10.26.40 AM.png" alt="Architecture Canvas" width="800"/>
+</p>
+
+---
+
+## 🌐 Works With Any IDE
+
+ArcheonGUI is **completely IDE-agnostic** — use it alongside your favorite development environment. Whether you're using VS Code, Cursor, Windsurf, or any other editor, ArcheonGUI runs as a separate window that visualizes your architecture in real-time.
+
+### Supported IDEs & AI Assistants
+
+| IDE / Tool | Integration | Configuration File |
+|------------|-------------|-------------------|
+| **VS Code** | Full support with GitHub Copilot | `.vscode/settings.json`, `.github/copilot-instructions.md` |
+| **Cursor** | Native AI rules integration | `.cursorrules`, `.cursor/README.md` |
+| **Windsurf** | Codeium AI integration | `.windsurfrules`, `.windsurf/README.md` |
+| **Cline** | Claude-powered assistant | `.clinerules`, `.cline/README.md` |
+| **Aider** | Terminal-based AI coding | `.aider.conf.yml`, `.aider/README.md` |
+| **GitHub Copilot** | Works in any supported editor | `.github/copilot-instructions.md` |
+| **Any Editor** | Manual `.arcon` editing | `archeon/ARCHEON.arcon` |
+
+### One-Click IDE Setup
+
+ArcheonGUI includes a built-in **Setup Modal** that configures AI rules for your preferred IDE in seconds:
+
+1. Open the terminal (`` ` ``)
+2. Click **"Setup"**
+3. Select your IDE(s)
+4. Click **"Apply Setup"**
+
+That's it! Your AI assistant now understands your project's architecture.
+
+---
+
+## 📸 Screenshots
+
+### Visual Architecture Canvas
+<p align="center">
+  <img src="./public/images/Screenshot 2025-12-30 at 10.26.40 AM.png" alt="Architecture Canvas" width="800"/>
+</p>
+
+*Interactive grid showing glyphs organized by chains with relationship connections*
+
+### Glyph Details & Code Preview
+<p align="center">
+  <img src="./public/images/Screenshot 2025-12-30 at 10.26.58 AM.png" alt="Glyph Details" width="800"/>
+</p>
+
+*Side drawer with glyph metadata, relationships, and live code preview*
+
+### Integrated Terminal
+<p align="center">
+  <img src="./public/images/Screenshot 2025-12-30 at 10.27.20 AM.png" alt="Integrated Terminal" width="800"/>
+</p>
+
+*Built-in terminal for running commands directly within ArcheonGUI*
+
+### IDE Setup Modal
+<p align="center">
+  <img src="./public/images/Screenshot 2025-12-30 at 10.27.34 AM.png" alt="Setup Modal" width="800"/>
+</p>
+
+*One-click configuration for your preferred AI-powered IDE*
+
+---
 
 ## Features
 
-- **Real Terminal** — Embedded zsh terminal to run `arc` commands directly
+- **Real-time Monitoring** — Watches your `archeon/` directory and updates instantly
 - **Live File Watching** — Auto-syncs when `ARCHEON.index.json` or `ARCHEON.arcon` changes
 - **Visual Grid** — Glyphs rendered as tiles with relationships shown as edges
 - **Monaco Code Viewer** — Click any glyph to view source code with syntax highlighting
-- **Project-Based** — Open any folder with an `archeon/` directory
+- **Built-in Terminal** — Embedded zsh terminal for running commands
+- **IDE Setup** — One-click configuration for AI-powered IDEs
 
-## Prerequisites
+---
 
-- **Node.js** 20.18+ (20.19+ recommended for Vite)
-- **npm** or **yarn**
-- **[Archeon CLI](https://github.com/danaia/archeon)** (recommended for project scaffolding, but optional if using AI IDE rules)
+## 🚀 Simple Glyph Notation
 
-> **Note:** You don't strictly need the Archeon CLI to use ArcheonGUI. If you're working with AI-powered IDEs like Cursor, Windsurf, or VS Code with Copilot, you can generate and manage your Archeon files directly through IDE chat using the appropriate AI rules. The CLI is primarily helpful for initial project scaffolding and command-line workflows.
+Archeon uses an intuitive **glyph notation system** — plain text files that describe your architecture. No special tools needed to create them.
 
-### Installing Archeon CLI (Optional)
+### The Notation
 
-The [Archeon CLI](https://github.com/danaia/archeon) is a powerful project architect that uses "shapes" (architectural templates) to scaffold consistent project structures. Install it using one of these methods:
-
-**Option A: Using pipx (recommended for isolated installation)**
-
-```bash
-pipx install git+https://github.com/danaia/archeon.git
+```
+@v1 NED:feature => CMP:Component => API:endpoint => OUT:result
 ```
 
-**Option B: Using pip**
+| Symbol | Meaning | Example |
+|--------|---------|--------|
+| `@v1` | Chain version | `@v1`, `@v2` |
+| `NED` | Need (entry point) | `NED:UserLogin` |
+| `CMP` | Component | `CMP:LoginForm` |
+| `API` | API endpoint | `API:POST/auth` |
+| `OUT` | Output/Result | `OUT:session` |
+| `MOD` | Model (data) | `MOD:User` |
+| `SVC` | Service (logic) | `SVC:AuthService` |
+| `UTL` | Utility | `UTL:validators` |
+| `=>` | Relationship | connects glyphs |
 
-```bash
-pip install git+https://github.com/danaia/archeon.git
-```
+### Getting Started
 
-**Why Archeon CLI is Essential:**
-[Archeon CLI](https://github.com/danaia/archeon) provides project "shapes" - pre-configured architectural templates that ensure consistent patterns across your entire codebase. Instead of starting from scratch, you get battle-tested structures like:
+1. Create an `archeon/` folder in your project
+2. Add an `ARCHEON.arcon` file with your architecture notation
+3. Open the project in ArcheonGUI
+4. Watch your architecture visualize in real-time!
 
-- `vue3-fastapi` - Full-stack Vue 3 + FastAPI architecture with standardized folder structure and API patterns
-- `react-node` - React frontend with Node.js backend, configured for seamless team collaboration
-- **Custom team shapes** - Define your organization's coding standards, file naming conventions, and architectural patterns in a single JSON configuration file that can be:
-  - Version controlled and shared across teams
+ArcheonGUI monitors for changes — edit your `.arcon` files in any editor and see updates instantly.
 
-These shapes prevent architectural drift, reduce decision fatigue, and give AI assistants clear constraints to follow. Most importantly, they ensure every team member starts with the same proven architecture, making code reviews faster and onboarding smoother. The CLI generates both your project structure and the knowledge graph (`.arcon` files) that ArcheonGUI visualizes.
+### Why This Matters
+
+- **AI Understands Your Architecture** — AI assistants can read `.arcon` files and generate code that follows your patterns
+- **Visual Verification** — See exactly how components connect
+- **Team Alignment** — Everyone sees the same architecture blueprint
+- **Zero Lock-in** — Plain text files work with any version control and any IDE
+
+---
 
 ## Installation
 
 ### Prerequisites
 
-Before installing, ensure you have:
+Before installing ArcheonGUI, ensure you have:
 - **Node.js** 20.18+ (20.19+ recommended)
 - **npm** 8.0+ or **yarn** 1.22+
 - **Git**
@@ -157,34 +233,9 @@ Glyphs from your `ARCHEON.index.json` will appear as tiles on the grid:
 - **Relationships** are shown as connecting lines between tiles
 - **Shape consistency** - All tiles follow the architectural patterns defined by your project's shape
 
-### 3. Use the Terminal for Archeon Commands
+### 3. Use the Built-in Terminal
 
-Press **backtick** (`` ` ``) to open the embedded terminal and leverage Archeon's powerful project scaffolding:
-
-```bash
-# Navigate to your project
-cd ~/projects/my-app
-
-# Initialize with architectural shape (creates consistent structure)
-arc init --arch vue3-fastapi
-
-# Or initialize with specific IDE integration
-arc init --arch vue3-fastapi --cursor  # Adds Cursor AI rules
-arc init --arch vue3-fastapi --copilot # Adds GitHub Copilot rules
-
-# Parse new chains using glyph notation
-arc parse "@v1 NED:feature => CMP:Feature => API:POST/feature => OUT:success"
-
-# Generate code from your architectural graph
-arc gen
-
-# Set up AI assistant rules for your IDE
-arc ai-setup
-
-# The grid updates automatically as you build!
-```
-
-**Pro Tip:** The `arc init` command uses "shapes" - architectural templates that scaffold your entire project with consistent patterns. This ensures your ArcheonGUI visualization reflects a well-structured, predictable architecture that AI assistants can understand and extend reliably.
+Press **backtick** (`` ` ``) to open the embedded terminal. Use it to run any commands in your project directory.
 
 ### 4. Inspect Glyphs
 
@@ -251,19 +302,18 @@ For distribution packages (`.dmg`, `.exe`, `.AppImage`), configure `electron-bui
 
 ### "ARCHEON.index.json not found"
 
-Your project needs an `archeon/` directory with archeon files. Create one using the CLI's shape system:
+Your project needs an `archeon/` directory with these files:
 
-```bash
-cd your-project
-# Use a shape for consistent architecture
-arc init --arch vue3-fastapi
-# Or for React projects:
-# arc init --arch react-node
+1. `archeon/ARCHEON.arcon` — Your architecture notation
+2. `archeon/ARCHEON.index.json` — The glyph index (can be generated or created manually)
 
-# Parse your first chain
-arc parse "@v1 NED:example => CMP:Example => OUT:display"
-# Generate the code
-arc gen
+Create a simple structure manually:
+
+```
+your-project/
+└── archeon/
+    ├── ARCHEON.arcon          # Your architecture chains
+    └── ARCHEON.index.json     # Glyph definitions
 ```
 
 ### Terminal not working
@@ -308,5 +358,5 @@ MIT
 
 ## Related
 
-- [Archeon CLI](https://github.com/danaia/archeon) — The architecture notation system
-- [Archeon Docs](https://github.com/danaia/archeon/wiki) — Learn the glyph syntax
+- [Archeon](https://github.com/danaia/archeon) — The architecture notation system
+- [Archeon Docs](https://github.com/danaia/archeon/wiki) — Learn more about glyph notation

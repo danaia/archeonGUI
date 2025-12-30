@@ -1,6 +1,6 @@
 # ArcheonGUI Documentation
 
-Welcome to **ArcheonGUI** — a visual architecture editor for [Archeon](https://github.com/danaia/archeon)-powered projects.
+Welcome to **ArcheonGUI** — a standalone desktop application for visualizing project architectures in real-time.
 
 ## 🎯 What is ArcheonGUI?
 
@@ -11,7 +11,66 @@ ArcheonGUI is an interactive canvas-based visualization tool that lets you:
 - **Edit** your ARCHEON.arcon files with visual feedback
 - **Validate** your architecture in real-time
 
-> **What is Archeon?** [Archeon](https://github.com/danaia/archeon) is a glyph-based architecture notation for describing component structures and relationships. Learn more in the [Archeon documentation](https://github.com/danaia/archeon/wiki).
+> **What is Archeon?** [Archeon](https://github.com/danaia/archeon) is a glyph-based architecture notation for describing component structures and relationships — just plain text files that any AI assistant can understand.
+
+---
+
+## 📸 Screenshots
+
+### Visual Architecture Canvas
+<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/Screenshot%202025-12-30%20at%2010.26.40%20AM.png" alt="Architecture Canvas" width="800"/>
+
+*Interactive grid showing glyphs organized by chains with relationship connections*
+
+### Glyph Details & Code Preview
+<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/Screenshot%202025-12-30%20at%2010.26.58%20AM.png" alt="Glyph Details" width="800"/>
+
+*Side drawer with glyph metadata, relationships, and live code preview*
+
+### Integrated Terminal
+<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/Screenshot%202025-12-30%20at%2010.27.20%20AM.png" alt="Integrated Terminal" width="800"/>
+
+*Built-in terminal for running commands directly within ArcheonGUI*
+
+### IDE Setup Modal
+<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/Screenshot%202025-12-30%20at%2010.27.34%20AM.png" alt="Setup Modal" width="800"/>
+
+*One-click configuration for your preferred AI-powered IDE*
+
+---
+
+## 🌐 Works With Any IDE
+
+ArcheonGUI is **completely IDE-agnostic** — it runs as a standalone window alongside your favorite editor. The built-in Setup Modal configures AI rules for your preferred IDE in seconds.
+
+### Supported IDEs & AI Assistants
+
+| IDE / Tool | Integration | Configuration File |
+|------------|-------------|-------------------|
+| **VS Code** | Full support with GitHub Copilot | `.vscode/settings.json`, `.github/copilot-instructions.md` |
+| **Cursor** | Native AI rules integration | `.cursorrules`, `.cursor/README.md` |
+| **Windsurf** | Codeium AI integration | `.windsurfrules`, `.windsurf/README.md` |
+| **Cline** | Claude-powered assistant | `.clinerules`, `.cline/README.md` |
+| **Aider** | Terminal-based AI coding | `.aider.conf.yml`, `.aider/README.md` |
+| **GitHub Copilot** | Works in any supported editor | `.github/copilot-instructions.md` |
+| **Any Editor** | Manual `.arcon` editing | `archeon/ARCHEON.arcon` |
+
+### Adding Archeon to Any Project
+
+Just create an `archeon/` folder with an `ARCHEON.arcon` file using simple glyph notation:
+
+```
+@v1 NED:feature => CMP:Component => API:endpoint => OUT:result
+```
+
+| Symbol | Meaning |
+|--------|--------|
+| `@v1` | Chain version |
+| `NED` | Need (entry point) |
+| `CMP` | Component |
+| `API` | API endpoint |
+| `OUT` | Output/Result |
+| `=>` | Relationship flow |
 
 ## 📚 Documentation
 
