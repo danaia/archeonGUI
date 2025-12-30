@@ -1,6 +1,6 @@
 # Archeon
 
-**Eliminate architectural drift and AI hallucinations.** By giving AI assistants a clear, visual knowledge graph of your project structure, Archeon ensures every generated component follows your established patterns. No more rogue file structures or inconsistent naming — your architecture stays coherent as your project grows.
+**Eliminate architectural drift and AI hallucinations.** By giving AI assistants a clear, visual knowledge graph of your project structure, Archeon makes sure every generated component follows your established patterns. No more rogue file structures or inconsistent naming — your architecture stays coherent as your project grows.
 
 **A standalone desktop application for visualizing project architectures in real-time.**
 
