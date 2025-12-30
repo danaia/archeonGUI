@@ -5,7 +5,7 @@
 ArcheonGUI monitors your project's `archeon/` directory and instantly updates a visual graph as your architecture evolves. No command-line tools required — just open your project and see your architecture come to life.
 
 <p align="center">
-  <img src="./public/images/Screenshot 2025-12-30 at 10.26.40 AM.png" alt="Architecture Canvas" width="800"/>
+  <img src="./public/images/1.png" alt="Architecture Canvas" width="800"/>
 </p>
 
 ---
@@ -43,31 +43,31 @@ That's it! Your AI assistant now understands your project's architecture.
 
 ### Visual Architecture Canvas
 <p align="center">
-  <img src="./public/images/Screenshot 2025-12-30 at 10.26.40 AM.png" alt="Architecture Canvas" width="800"/>
+  <img src="./public/images/1.png" alt="Architecture Canvas" width="800"/>
 </p>
 
 *Interactive grid showing glyphs organized by chains with relationship connections*
 
 ### Glyph Details & Code Preview
 <p align="center">
-  <img src="./public/images/Screenshot 2025-12-30 at 10.26.58 AM.png" alt="Glyph Details" width="800"/>
+  <img src="./public/images/4.png" alt="Glyph Details" width="800"/>
 </p>
 
 *Side drawer with glyph metadata, relationships, and live code preview*
 
 ### Integrated Terminal
 <p align="center">
-  <img src="./public/images/Screenshot 2025-12-30 at 10.27.20 AM.png" alt="Integrated Terminal" width="800"/>
+  <img src="./public/images/2.png" alt="Integrated Terminal" width="800"/>
 </p>
 
 *Built-in terminal for running commands directly within ArcheonGUI*
 
-### IDE Setup Modal
+### Setup Modal
 <p align="center">
-  <img src="./public/images/Screenshot 2025-12-30 at 10.27.34 AM.png" alt="Setup Modal" width="800"/>
+  <img src="./public/images/3.png" alt="Setup Modal" width="800"/>
 </p>
 
-*One-click configuration for your preferred AI-powered IDE*
+*One-click setup with architecture shapes and AI IDE rules*
 
 ---
 

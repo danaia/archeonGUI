@@ -18,24 +18,24 @@ ArcheonGUI is an interactive canvas-based visualization tool that lets you:
 ## 📸 Screenshots
 
 ### Visual Architecture Canvas
-<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/Screenshot%202025-12-30%20at%2010.26.40%20AM.png" alt="Architecture Canvas" width="800"/>
+<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/1.png" alt="Architecture Canvas" width="800"/>
 
 *Interactive grid showing glyphs organized by chains with relationship connections*
 
 ### Glyph Details & Code Preview
-<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/Screenshot%202025-12-30%20at%2010.26.58%20AM.png" alt="Glyph Details" width="800"/>
+<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/4.png" alt="Glyph Details" width="800"/>
 
 *Side drawer with glyph metadata, relationships, and live code preview*
 
 ### Integrated Terminal
-<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/Screenshot%202025-12-30%20at%2010.27.20%20AM.png" alt="Integrated Terminal" width="800"/>
+<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/2.png" alt="Integrated Terminal" width="800"/>
 
 *Built-in terminal for running commands directly within ArcheonGUI*
 
-### IDE Setup Modal
-<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/Screenshot%202025-12-30%20at%2010.27.34%20AM.png" alt="Setup Modal" width="800"/>
+### Setup Modal
+<img src="https://raw.githubusercontent.com/danaia/archeonGUI/main/public/images/3.png" alt="Setup Modal" width="800"/>
 
-*One-click configuration for your preferred AI-powered IDE*
+*One-click setup with architecture shapes and AI IDE rules*
 
 ---
 
