@@ -87,6 +87,12 @@ export const ideOptions = [
     description: "GitHub Copilot instructions (works in any editor)",
     files: [".github/copilot-instructions.md"],
   },
+  {
+    id: "antigravity",
+    name: "Antigravity",
+    description: "AI agent rules for Antigravity IDE",
+    files: [".agent/rules/archeon.md"],
+  },
 ];
 
 // CLI installation commands
