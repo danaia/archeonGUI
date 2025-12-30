@@ -17,7 +17,7 @@ ArcheonGUI monitors your project's `archeon/` directory and instantly updates a 
 
 ---
 
-## 🌐 Works With Any IDE
+## Works With Any IDE
 
 ArcheonGUI is **completely IDE-agnostic** — use it alongside your favorite development environment. Whether you're using VS Code, Cursor, Windsurf, or any other editor, ArcheonGUI runs as a separate window that visualizes your architecture in real-time.
 
@@ -58,7 +58,7 @@ This adds the necessary configuration files (e.g., `.cursorrules`, `.github/copi
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
 
 ### Glyph Details & Code Preview
@@ -95,7 +95,7 @@ This adds the necessary configuration files (e.g., `.cursorrules`, `.github/copi
 
 ---
 
-## 🚀 Simple Glyph Notation
+## Simple Glyph Notation
 
 Archeon uses an intuitive **glyph notation system** — plain text files that describe your architecture. No special tools needed to create them.
 
