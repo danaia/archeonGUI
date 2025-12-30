@@ -38,11 +38,10 @@ ArcheonGUI is **completely IDE-agnostic** — use it alongside your favorite dev
 
 ArcheonGUI includes a built-in **Setup Modal** that configures AI rules for your preferred IDE in seconds:
 
-1. Open the terminal (`` ` ``)
-2. Click the **"Setup"** button in the terminal panel
-3. Choose a setup mode: **Rules Only**, **Install CLI**, or **Shapes**
-4. Select your IDE(s) from the checkboxes (GitHub Copilot, Cursor, Windsurf, Cline, Aider, Antigravity)
-5. Click **"Scaffold Project"**
+1. Click the **"Setup"** button in the terminal panel
+2. Choose a setup mode: **Rules Only**, **Install CLI**, or **Shapes**
+3. Select your IDE(s) from the checkboxes (GitHub Copilot, Cursor, Windsurf, Cline, Aider, Antigravity)
+4. Click **"Scaffold Project"**
 
 That's it! Your AI assistant now understands your project's architecture.
 
