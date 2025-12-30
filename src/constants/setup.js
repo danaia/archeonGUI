@@ -30,6 +30,7 @@ export const ideRuleOptions = [
   { id: "windsurf", name: "Windsurf", flag: "--windsurf" },
   { id: "cline", name: "Cline", flag: "--cline" },
   { id: "aider", name: "Aider", flag: "--aider" },
+  { id: "antigravity", name: "Antigravity", flag: "--antigravity" },
 ];
 
 // IDE options for rules-only installation
