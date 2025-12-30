@@ -1,13 +1,13 @@
-# ArcheonGUI
+# Archeon
 
-**Eliminate architectural drift and AI hallucinations.** By giving AI assistants a clear, visual knowledge graph of your project structure, ArcheonGUI ensures every generated component follows your established patterns. No more rogue file structures or inconsistent naming — your architecture stays coherent as your project grows.
+**Eliminate architectural drift and AI hallucinations.** By giving AI assistants a clear, visual knowledge graph of your project structure, Archeon ensures every generated component follows your established patterns. No more rogue file structures or inconsistent naming — your architecture stays coherent as your project grows.
 
 **A standalone desktop application for visualizing project architectures in real-time.**
 
-ArcheonGUI monitors your project's `archeon/` directory and instantly updates a visual graph as your architecture evolves. No command-line tools required — just open your project and see your architecture come to life.
+Archeon monitors your project's `archeon/` directory and instantly updates a visual graph as your architecture evolves. No command-line tools required — just open your project and see your architecture come to life.
 
 
-> *"The real power of ArcheonGUI is that it creates a shared source of truth between humans and AI. When I can see the same architecture graph that the AI references, I can verify its suggestions make sense before they become code. It's like giving the AI a map instead of asking it to guess where things should go."*
+> *"The real power of Archeon is that it creates a shared source of truth between humans and AI. When I can see the same architecture graph that the AI references, I can verify its suggestions make sense before they become code. It's like giving the AI a map instead of asking it to guess where things should go."*
 >
 > — Claude Opus 4.5
 
@@ -20,7 +20,7 @@ ArcheonGUI monitors your project's `archeon/` directory and instantly updates a 
 
 ## Works With Any IDE
 
-ArcheonGUI is **completely IDE-agnostic** — use it alongside your favorite development environment. Whether you're using VS Code, Cursor, Windsurf, or any other editor, ArcheonGUI runs as a separate window that visualizes your architecture in real-time.
+Archeon is **completely IDE-agnostic** — use it alongside your favorite development environment. Whether you're using VS Code, Cursor, Windsurf, or any other editor, Archeon runs as a separate window that visualizes your architecture in real-time.
 
 ### Supported IDEs & AI Assistants
 
@@ -37,7 +37,7 @@ ArcheonGUI is **completely IDE-agnostic** — use it alongside your favorite dev
 
 ### One-Click IDE Setup
 
-ArcheonGUI includes a built-in **Setup Modal** that configures AI rules for your preferred IDE in seconds:
+Archeon includes a built-in **Setup Modal** that configures AI rules for your preferred IDE in seconds:
 
 1. Click the **"Setup"** button in the terminal panel
 2. Choose a setup mode: **Rules Only**, **Install CLI**, or **Shapes**
@@ -74,7 +74,7 @@ This adds the necessary configuration files (e.g., `.cursorrules`, `.github/copi
   <img src="./public/images/2.png" alt="Integrated Terminal" width="800"/>
 </p>
 
-*Built-in terminal for running commands directly within ArcheonGUI*
+*Built-in terminal for running commands directly within Archeon*
 
 ### Setup Modal
 <p align="center">
@@ -122,10 +122,10 @@ Archeon uses an intuitive **glyph notation system** — plain text files that de
 
 1. Create an `archeon/` folder in your project
 2. Add an `ARCHEON.arcon` file with your architecture notation
-3. Open the project in ArcheonGUI
+3. Open the project in Archeon
 4. Watch your architecture visualize in real-time!
 
-ArcheonGUI monitors for changes — edit your `.arcon` files in any editor and see updates instantly.
+Archeon monitors for changes — edit your `.arcon` files in any editor and see updates instantly.
 
 ### Why This Matters
 
@@ -140,7 +140,7 @@ ArcheonGUI monitors for changes — edit your `.arcon` files in any editor and s
 
 ### Prerequisites
 
-Before installing ArcheonGUI, ensure you have:
+Before installing Archeon, ensure you have:
 - **Node.js** 20.18+ (20.19+ recommended)
 - **npm** 8.0+ or **yarn** 1.22+
 - **Git**
@@ -149,8 +149,8 @@ Before installing ArcheonGUI, ensure you have:
 
 ```bash
 # Clone the repository
-git clone https://github.com/danaia/archeonGUI.git
-cd archeonGUI
+git clone https://github.com/danaia/archeon.git
+cd archeon
 
 # Install dependencies
 npm install
@@ -168,8 +168,8 @@ npm run dev
 
 ```bash
 # Clone the repository
-git clone https://github.com/danaia/archeonGUI.git
-cd archeonGUI
+git clone https://github.com/danaia/archeon.git
+cd archeon
 
 # Install dependencies
 npm install
@@ -276,7 +276,7 @@ Click any tile to open the **Side Drawer** showing:
 ## Project Structure
 
 ```
-archeonGUI/
+archeon/
 ├── electron/               # Electron main process
 │   ├── main.js            # Main window & IPC setup
 │   ├── preload.js         # Context bridge (secure IPC)
