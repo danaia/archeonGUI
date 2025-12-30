@@ -1,10 +1,11 @@
 # ArcheonGUI
 
+**Eliminate architectural drift and AI hallucinations.** By giving AI assistants a clear, visual knowledge graph of your project structure, ArcheonGUI ensures every generated component follows your established patterns. No more rogue file structures or inconsistent naming — your architecture stays coherent as your project grows.
+
 **A standalone desktop application for visualizing project architectures in real-time.**
 
 ArcheonGUI monitors your project's `archeon/` directory and instantly updates a visual graph as your architecture evolves. No command-line tools required — just open your project and see your architecture come to life.
 
-**Eliminate architectural drift and AI hallucinations.** By giving AI assistants a clear, visual knowledge graph of your project structure, ArcheonGUI ensures every generated component follows your established patterns. No more rogue file structures or inconsistent naming — your architecture stays coherent as your project grows.
 
 > *"The real power of ArcheonGUI is that it creates a shared source of truth between humans and AI. When I can see the same architecture graph that the AI references, I can verify its suggestions make sense before they become code. It's like giving the AI a map instead of asking it to guess where things should go."*
 >
