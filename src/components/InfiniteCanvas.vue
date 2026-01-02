@@ -241,6 +241,23 @@ function handleWheel(e) {
   e.preventDefault();
   e.stopPropagation();
 
+  // If Shift is pressed, scroll vertically instead of zooming
+  if (canvasStore.isShiftPressed) {
+    const deltaY = e.deltaY;
+    canvasStore.pan(0, -deltaY);
+    
+    // Mark camera as moving to disable CSS transitions
+    isCameraMoving.value = true;
+    if (cameraMovingTimeout) clearTimeout(cameraMovingTimeout);
+    cameraMovingTimeout = setTimeout(() => {
+      isCameraMoving.value = false;
+    }, 150);
+    
+    // Debounced save camera on pan
+    debouncedSaveCamera();
+    return;
+  }
+
   // Mark camera as moving to disable CSS transitions during zoom
   isCameraMoving.value = true;
   if (cameraMovingTimeout) clearTimeout(cameraMovingTimeout);
@@ -392,6 +409,10 @@ function handleKeyDown(e) {
     canvasStore.isSpacePressed = true;
   }
 
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+    canvasStore.isShiftPressed = true;
+  }
+
   if (e.code === "Escape") {
     tileStore.deselectTile();
     tileStore.clearMultiSelection();
@@ -405,6 +426,10 @@ function handleKeyDown(e) {
 function handleKeyUp(e) {
   if (e.code === "Space") {
     canvasStore.isSpacePressed = false;
+  }
+  
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+    canvasStore.isShiftPressed = false;
   }
   uiStore.keyUp(e.code);
 }
