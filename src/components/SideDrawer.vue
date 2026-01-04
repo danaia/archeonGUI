@@ -401,11 +401,25 @@ function stopResize() {
   window.removeEventListener("mouseup", stopResize);
 }
 
+// ESC key handler
+function handleEscKey(event) {
+  if (event.key === "Escape" && isOpen.value) {
+    handleClose();
+  }
+}
+
+onMounted(() => {
+  // Add ESC key listener
+  window.addEventListener("keydown", handleEscKey);
+});
+
 onUnmounted(() => {
   destroyMonacoEditor();
   // Clean up resize listeners
   window.removeEventListener("mousemove", handleResize);
   window.removeEventListener("mouseup", stopResize);
+  // Clean up ESC key listener
+  window.removeEventListener("keydown", handleEscKey);
 });
 </script>
 
@@ -468,8 +482,9 @@ onUnmounted(() => {
                 <span>Edit</span>
               </button>
               <button
+                type="button"
                 @click.stop="handleClose"
-                class="p-2 rounded-lg hover:bg-ui-bgLight text-ui-textMuted hover:text-ui-text transition-colors"
+                class="p-2 rounded-lg hover:bg-ui-bgLight text-ui-textMuted hover:text-ui-text transition-colors cursor-pointer"
               >
                 <svg
                   class="w-5 h-5"
