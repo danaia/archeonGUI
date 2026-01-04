@@ -241,8 +241,8 @@ function handleWheel(e) {
   e.preventDefault();
   e.stopPropagation();
 
-  // If Shift is pressed, scroll vertically instead of zooming
-  if (canvasStore.isShiftPressed) {
+  // If Shift or Command/Ctrl is pressed, scroll vertically instead of zooming
+  if (e.shiftKey || e.metaKey || e.ctrlKey) {
     const deltaY = e.deltaY;
     canvasStore.pan(0, -deltaY);
     

@@ -31,6 +31,7 @@ export const useCanvasStore = defineStore("canvas", () => {
   // Panning state
   const isPanning = ref(false);
   const isSpacePressed = ref(false);
+  const isShiftPressed = ref(false);
 
   // Grid configuration - tile is 2 units high, 6 units wide
   const tileHeight = ref(80); // Base height in pixels at zoom 1
@@ -224,6 +225,7 @@ export const useCanvasStore = defineStore("canvas", () => {
     maxZoom,
     isPanning,
     isSpacePressed,
+    isShiftPressed,
     tileHeight,
     tileWidth,
     gridGap,
