@@ -751,7 +751,7 @@ onUnmounted(() => {
             }"
             v-if="canvasStore.zoom > 0.25"
           >
-            {{ tile.glyphType }}
+            {{ tile.name }}
           </span>
           <!-- Mismatch indicator with tooltip -->
           <Tooltip v-if="tile.mismatch" position="bottom" maxWidth="320px">
@@ -825,7 +825,7 @@ onUnmounted(() => {
               class="text-ui-text font-medium truncate leading-tight cursor-help"
               :style="{ fontSize: Math.max(10, 12 * canvasStore.zoom) + 'px' }"
             >
-              {{ tile.name }}
+              {{ tile.glyphType }}
             </span>
             <template #content>
               <div class="space-y-1.5">
@@ -845,7 +845,7 @@ onUnmounted(() => {
             class="text-ui-text font-medium truncate leading-tight"
             :style="{ fontSize: Math.max(10, 12 * canvasStore.zoom) + 'px' }"
           >
-            {{ tile.name }}
+            {{ tile.glyphType }}
           </span>
           <span
             class="text-ui-textMuted truncate leading-tight"
