@@ -6,6 +6,28 @@
 
 Archeon monitors your project's `archeon/` directory and instantly updates a visual graph as your architecture evolves. No command-line tools required — just open your project and see your architecture come to life.
 
+## Platform-Specific Installation
+
+Archeon supports **macOS** and **Linux**. The repository includes platform-specific package.json files to handle different dependencies.
+
+### Troubleshooting Installation Errors
+
+If you encounter an error like `EBADPLATFORM` or `Unsupported platform for @rollup/rollup-darwin-arm64`, you need to use the correct package.json for your platform:
+
+**For Linux users:**
+```bash
+cp package.json.linux package.json
+npm install
+```
+
+**For macOS users:**
+```bash
+cp package.json.mac package.json
+npm install
+```
+
+The platform-specific files handle the correct rollup binaries and build configurations for your OS.
+
 
 > *"The real power of Archeon is that it creates a shared source of truth between humans and AI. When I can see the same architecture graph that the AI references, I can verify its suggestions make sense before they become code. It's like giving the AI a map instead of asking it to guess where things should go."*
 >

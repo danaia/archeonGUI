@@ -6,10 +6,11 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "CSC_IDENTITY_AUTO_DISCOVERY=false vite build && electron-builder --arm64 --mac --dir",
-    "build:dmg": "vite build && electron-builder --arm64 --mac dmg",
+    "build": "vite build && electron-builder --linux --dir",
+    "build:appimage": "vite build && electron-builder --linux AppImage",
+    "build:deb": "vite build && electron-builder --linux deb",
     "preview": "vite preview",
-    "postinstall": "rm -rf node_modules/@vue/devtools-kit node_modules/@vue/devtools-api || true && npx electron-rebuild -f -w node-pty"
+    "postinstall": "rm -rf node_modules/@vue/devtools-kit node_modules/@vue/devtools-api || true"
   },
   "dependencies": {
     "@xterm/addon-fit": "*",
@@ -23,10 +24,9 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
-    "@rollup/rollup-darwin-arm64": "^4.54.0",
+    "@rollup/rollup-linux-x64-gnu": "^4.53.3",
     "@vitejs/plugin-vue": "^5.0.4",
     "autoprefixer": "^10.4.23",
-    "dmg-license": "^1.0.11",
     "electron": "^33.0.0",
     "electron-builder": "^24.6.4",
     "postcss": "^8.5.6",
@@ -41,17 +41,14 @@
   "build": {
     "appId": "com.archeon.gui",
     "productName": "Archeon",
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "target": {
-        "target": "dir",
-        "arch": "arm64"
-      },
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false,
-      "type": "development",
-      "identity": null,
-      "icon": "public/icon.iconset/icon.icns"
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "maintainer": "Archeon <info@archeon.dev>",
+      "vendor": "Archeon"
     },
     "files": [
       "dist/**/*",
@@ -72,9 +69,5 @@
     "nodeGypRebuild": false,
     "npmRebuild": false,
     "buildDependenciesFromSource": false
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.53.3",
-    "@rollup/rollup-darwin-x64": "^4.53.3"
   }
 }
