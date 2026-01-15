@@ -58,7 +58,7 @@ jobs:
           echo "Notarization not yet configured"
 
       - name: Upload DMG as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ArcheonGUI-dmg
           path: release/*.dmg
