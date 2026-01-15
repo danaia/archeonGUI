@@ -9,6 +9,7 @@
     "build": "vite build && electron-builder --linux --dir",
     "build:appimage": "vite build && electron-builder --linux AppImage",
     "build:deb": "vite build && electron-builder --linux deb",
+    "install:linux": "npm run build:appimage && cp release/Archeon-0.0.1.AppImage ~/.local/bin/Archeon.AppImage && chmod +x ~/.local/bin/Archeon.AppImage && echo '✅ Installed to ~/.local/bin/Archeon.AppImage'",
     "preview": "vite preview",
     "postinstall": "rm -rf node_modules/@vue/devtools-kit node_modules/@vue/devtools-api || true"
   },
@@ -41,6 +42,7 @@
   "build": {
     "appId": "com.archeon.gui",
     "productName": "Archeon",
+    "icon": "public/icon.iconset/icon.png",
     "linux": {
       "target": [
         "AppImage",
@@ -48,7 +50,8 @@
       ],
       "category": "Development",
       "maintainer": "Archeon <info@archeon.dev>",
-      "vendor": "Archeon"
+      "vendor": "Archeon",
+      "icon": "public/icon.iconset/icon.png"
     },
     "files": [
       "dist/**/*",

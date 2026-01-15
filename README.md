@@ -6,27 +6,15 @@
 
 Archeon monitors your project's `archeon/` directory and instantly updates a visual graph as your architecture evolves. No command-line tools required — just open your project and see your architecture come to life.
 
+## Quick Links
+
+- 📖 **[Linux Build Guide](LINUX_BUILD.md)** - Comprehensive Linux build and installation reference
+- 🚀 **Quick Install Linux**: `./install-linux.sh`
+- 💻 **Development Mode**: `npm run dev`
+
 ## Platform-Specific Installation
 
-Archeon supports **macOS** and **Linux**. The repository includes platform-specific package.json files to handle different dependencies.
-
-### Troubleshooting Installation Errors
-
-If you encounter an error like `EBADPLATFORM` or `Unsupported platform for @rollup/rollup-darwin-arm64`, you need to use the correct package.json for your platform:
-
-**For Linux users:**
-```bash
-cp package.json.linux package.json
-npm install
-```
-
-**For macOS users:**
-```bash
-cp package.json.mac package.json
-npm install
-```
-
-The platform-specific files handle the correct rollup binaries and build configurations for your OS.
+Archeon supports **macOS** and **Linux**.
 
 
 > *"The real power of Archeon is that it creates a shared source of truth between humans and AI. When I can see the same architecture graph that the AI references, I can verify its suggestions make sense before they become code. It's like giving the AI a map instead of asking it to guess where things should go."*
@@ -188,24 +176,102 @@ npm run dev
 
 ### Linux Installation
 
+#### Quick Install (Recommended)
+
+The easiest way to build and install Archeon on Linux is to use the automated install script:
+
 ```bash
 # Clone the repository
 git clone https://github.com/danaia/archeon.git
 cd archeon
 
+# Run the installation script
+./install-linux.sh
+```
+
+This script will:
+- Clean any previous builds
+- Install all dependencies
+- Build an AppImage installer
+- Install the app to `~/.local/bin/`
+- Create desktop menu entries with proper icon
+- Set up a desktop shortcut
+
+After installation, you can:
+- Launch from your application menu (search for "Archeon")
+- Run from terminal: `~/.local/bin/Archeon.AppImage`
+- Add to favorites by right-clicking the app in your launcher
+
+#### Manual Installation
+
+If you prefer to install manually:
+
+```bash
+# Clone the repository
+git clone https://github.com/danaia/archeon.git
+cd archeon
+
+# Clean and install dependencies
+rm -rf node_modules package-lock.json
+npm cache clean --force
+npm install
+
+# Build the AppImage
+npm run build:appimage
+
+# Install to system
+mkdir -p ~/.local/bin ~/.local/share/applications ~/.local/share/icons
+cp release/Archeon-0.0.1.AppImage ~/.local/bin/Archeon.AppImage
+chmod +x ~/.local/bin/Archeon.AppImage
+cp public/icon.iconset/icon_256x256.png ~/.local/share/icons/archeon.png
+
+# Create desktop entry
+cat > ~/.local/share/applications/archeon.desktop << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Archeon
+Comment=Archeon GUI - Project Visualization Tool
+Exec=env GDK_BACKEND=x11 ~/.local/bin/Archeon.AppImage %U
+Icon=~/.local/share/icons/archeon.png
+Terminal=false
+Categories=Development;Utility;
+StartupNotify=true
+StartupWMClass=archeongui
+EOF
+
+chmod 644 ~/.local/share/applications/archeon.desktop
+update-desktop-database ~/.local/share/applications
+```
+
+#### Development Mode
+
+To run in development mode without installing:
+
+```bash
 # Install dependencies
 npm install
 
-# The installation will automatically:
-# - Install platform-specific rollup binaries (@rollup/rollup-linux-x64-gnu or @rollup/rollup-linux-x64-musl)
-# - Set up native modules for Electron (node-pty for terminal support)
-# - Configure the stub for @vue/devtools-api
-
-# You're ready to go!
+# Start the app with hot-reload
 npm run dev
 ```
 
 ### Troubleshooting Installation
+
+**Issue: "EBADPLATFORM" or "Unsupported platform for @rollup/rollup-darwin-*"**
+
+This occurs when you have a stale `package-lock.json` from a different platform. Fix it with:
+
+```bash
+# Remove old dependencies and cache
+rm -rf node_modules package-lock.json
+npm cache clean --force
+
+# Fresh install
+npm install
+```
+
+The correct platform-specific dependencies will be installed automatically.
 
 **Issue: "Cannot find module @rollup/rollup-*"**
 
@@ -216,12 +282,29 @@ This can occur due to npm's handling of optional dependencies. Fix it with:
 rm -rf node_modules package-lock.json
 npm cache clean --force
 
-# Reinstall without optional deps first
-npm install --no-optional
-
-# Then install optional deps (includes platform-specific rollup binaries)
-npm install --include=optional
+# Reinstall
+npm install
 ```
+
+**Issue: App doesn't appear in application menu**
+
+After installation, you may need to refresh your desktop environment:
+
+```bash
+# Update desktop database
+update-desktop-database ~/.local/share/applications
+
+# On GNOME: Restart the shell
+# Press Alt+F2, type 'r', press Enter
+# Or log out and log back in
+```
+
+**Issue: App doesn't launch from favorites/dock**
+
+Remove and re-add the app to favorites to pick up the updated desktop entry:
+1. Remove Archeon from favorites
+2. Search for "Archeon" in app menu
+3. Right-click and select "Add to Favorites"
 
 **Issue: Terminal not working on Linux**
 
@@ -250,6 +333,55 @@ npm run dev
 ```
 
 The Electron window will open automatically. Hot-reload is enabled for both renderer and main process.
+
+## Building for Linux
+
+Archeon provides several build targets for Linux distribution:
+
+### Build Commands
+
+```bash
+# Build AppImage (recommended for universal Linux compatibility)
+npm run build:appimage
+
+# Build Debian package (.deb)
+npm run build:deb
+
+# Build unpacked directory (for testing)
+npm run build
+```
+
+### Rebuild and Update Installed App
+
+If you've made changes and want to update your installed version:
+
+```bash
+# Quick rebuild and reinstall
+npm run build:appimage
+cp release/Archeon-0.0.1.AppImage ~/.local/bin/Archeon.AppImage
+
+# Or use the install script to do everything
+./install-linux.sh
+```
+
+### Build Output
+
+All build artifacts are created in the `release/` directory:
+- `Archeon-0.0.1.AppImage` - Portable AppImage (works on most Linux distros)
+- `linux-unpacked/` - Unpacked application directory
+- Build configuration files
+
+### Desktop Integration Notes
+
+The build automatically:
+- Includes the app icon from `public/icon.iconset/`
+- Creates proper Linux desktop entry metadata
+- Packages all dependencies into the AppImage
+
+The desktop entry is configured with:
+- `GDK_BACKEND=x11` for Wayland/X11 compatibility
+- Proper StartupWMClass for dock integration
+- Development category classification
 
 ## Usage
 
