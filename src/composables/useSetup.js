@@ -9,6 +9,9 @@ import {
   getPipxInstallCommand,
   getCLIInstallCommand,
 } from "../constants/setup";
+import {
+  reloadFromProject,
+} from "../services/archeon-sync";
 
 /**
  * Composable for setup modal logic
@@ -113,6 +116,8 @@ export function useSetup() {
 
     const result = await projectStore.openProject();
     if (result.success) {
+      // Force canvas refresh from the newly loaded project files
+      await reloadFromProject();
       uiStore.addToast(
         `Project opened: ${projectStore.projectName}`,
         "success",

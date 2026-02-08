@@ -47,6 +47,10 @@ export const useProjectStore = defineStore("project", () => {
         return { success: false, canceled: true };
       }
 
+      // Clear stale data from previous project before loading new one
+      arconData.value = null;
+      indexData.value = null;
+
       // Always set project path and save to localStorage (even without archeon/)
       projectPath.value = result.path;
       localStorage.setItem(STORAGE_KEY, result.path);

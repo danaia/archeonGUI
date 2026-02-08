@@ -144,13 +144,8 @@ async function handleOpenProject() {
 
   const result = await projectStore.openProject();
   if (result.success) {
-    // Sync data to grid - arcon FIRST (structure), then index (confirmation)
-    if (projectStore.arconData?.chains) {
-      syncChainsToTiles(projectStore.arconData.chains);
-    }
-    if (projectStore.indexData) {
-      confirmGlyphsFromIndex(projectStore.indexData);
-    }
+    // Force a full reload from project files to guarantee canvas refresh
+    await reloadFromProject();
   }
 }
 
