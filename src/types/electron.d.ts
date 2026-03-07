@@ -117,6 +117,7 @@ interface ElectronAPI {
   // Shell
   openExternal: (url: string) => Promise<ShellResult>;
   checkCommand: (command: string) => Promise<{ success: boolean; output?: string; error?: string }>;
+  checkArcheonCLIInstalled: () => Promise<{ success: boolean; binary?: string; output?: string; error?: string }>;
   
   // Archeon Shapes
   getShapes: () => Promise<GetShapesResult>;

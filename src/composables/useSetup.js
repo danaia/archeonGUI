@@ -55,9 +55,16 @@ export function useSetup() {
 
     isCheckingCLI.value = true;
     try {
-      // Use direct path to archeon binary installed by pipx
-      const result = await window.electronAPI.checkCommand("~/.local/bin/archeon --version");
-      isCLIInstalled.value = result.success;
+      if (window.electronAPI.checkArcheonCLIInstalled) {
+        const result = await window.electronAPI.checkArcheonCLIInstalled();
+        isCLIInstalled.value = result.success;
+      } else {
+        // Fallback for older preload/main builds
+        const result = await window.electronAPI.checkCommand(
+          "(command -v arc >/dev/null 2>&1 && arc --version) || (command -v archeon >/dev/null 2>&1 && archeon --version) || (test -x ~/.local/bin/arc && ~/.local/bin/arc --version) || (test -x ~/.local/bin/archeon && ~/.local/bin/archeon --version)"
+        );
+        isCLIInstalled.value = result.success;
+      }
     } catch (error) {
       isCLIInstalled.value = false;
     } finally {
@@ -184,7 +191,7 @@ export function useSetup() {
     console.log(`[scaffoldWithShape] Project path: ${projectPath}`);
 
     // Build the command with optional IDE flags
-    let command = `cd "${projectPath}" && archeon init --arch ${selectedShape.value}`;
+    let command = `cd "${projectPath}" && if command -v arc >/dev/null 2>&1; then arc init --arch ${selectedShape.value}; elif command -v archeon >/dev/null 2>&1; then archeon init --arch ${selectedShape.value}; elif [ -x "$HOME/.local/bin/arc" ]; then "$HOME/.local/bin/arc" init --arch ${selectedShape.value}; else "$HOME/.local/bin/archeon" init --arch ${selectedShape.value}; fi`;
 
     for (const ruleId of includeIDERules.value) {
       const rule = ideRuleOptions.find((r) => r.id === ruleId);

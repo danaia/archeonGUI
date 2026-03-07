@@ -75,4 +75,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   
   // ============ ARCHEON SHAPES ============
   getShapes: () => ipcRenderer.invoke("archeon:getShapes"),
+
+  // ============ ARCHEON CLI ============
+  checkArcheonCLIInstalled: () => ipcRenderer.invoke("archeon:checkCLIInstalled"),
 });

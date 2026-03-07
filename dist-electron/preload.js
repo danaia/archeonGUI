@@ -5,15 +5,15 @@ t.exposeInMainWorld("electronAPI", {
   // ============ PTY TERMINAL ============
   ptySpawn: (e) => n.invoke("pty:spawn", e),
   ptyWrite: (e, o) => n.send("pty:write", { id: e, data: o }),
-  ptyResize: (e, o, i) => n.send("pty:resize", { id: e, cols: o, rows: i }),
+  ptyResize: (e, o, a) => n.send("pty:resize", { id: e, cols: o, rows: a }),
   ptyKill: (e) => n.send("pty:kill", { id: e }),
   // PTY event listeners
   onPtyData: (e) => {
-    const o = (i, r) => e(r);
+    const o = (a, r) => e(r);
     return n.on("pty:data", o), () => n.removeListener("pty:data", o);
   },
   onPtyExit: (e) => {
-    const o = (i, r) => e(r);
+    const o = (a, r) => e(r);
     return n.on("pty:exit", o), () => n.removeListener("pty:exit", o);
   },
   // ============ ARCHEON WATCHER ============
@@ -25,11 +25,11 @@ t.exposeInMainWorld("electronAPI", {
   archeonValidate: (e) => n.invoke("archeon:validate", e),
   // Archeon event listeners
   onArcheonIndexChanged: (e) => {
-    const o = (i, r) => e(r);
+    const o = (a, r) => e(r);
     return n.on("archeon:index-changed", o), () => n.removeListener("archeon:index-changed", o);
   },
   onArcheonArconChanged: (e) => {
-    const o = (i, r) => e(r);
+    const o = (a, r) => e(r);
     return n.on("archeon:arcon-changed", o), () => n.removeListener("archeon:arcon-changed", o);
   },
   // ============ FILE SYSTEM ============
@@ -47,5 +47,7 @@ t.exposeInMainWorld("electronAPI", {
   checkCommand: (e) => n.invoke("shell:checkCommand", e),
   openFile: (e, o) => n.invoke("shell:openFile", e, o),
   // ============ ARCHEON SHAPES ============
-  getShapes: () => n.invoke("archeon:getShapes")
+  getShapes: () => n.invoke("archeon:getShapes"),
+  // ============ ARCHEON CLI ============
+  checkArcheonCLIInstalled: () => n.invoke("archeon:checkCLIInstalled")
 });

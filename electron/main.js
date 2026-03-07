@@ -448,6 +448,43 @@ ipcMain.handle("shell:checkCommand", async (event, command) => {
   }
 });
 
+// Dedicated Archeon CLI check to avoid shell-expression edge cases in renderer calls
+ipcMain.handle("archeon:checkCLIInstalled", async () => {
+  const homeDir = os.homedir();
+  const expandedPath = [
+    `${homeDir}/.local/bin`,
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    process.env.PATH,
+  ].join(":");
+
+  const candidates = [
+    { name: "arc", command: "arc --version" },
+    { name: "archeon", command: "archeon --version" },
+    { name: `${homeDir}/.local/bin/arc`, command: `${homeDir}/.local/bin/arc --version` },
+    { name: `${homeDir}/.local/bin/archeon`, command: `${homeDir}/.local/bin/archeon --version` },
+  ];
+
+  const errors = [];
+
+  for (const candidate of candidates) {
+    try {
+      const { stdout } = await execAsync(candidate.command, {
+        timeout: 5000,
+        env: { ...process.env, PATH: expandedPath },
+      });
+      const output = (stdout || "").trim();
+      console.log(`[archeon:checkCLIInstalled] Found via ${candidate.name}: ${output}`);
+      return { success: true, binary: candidate.name, output };
+    } catch (error) {
+      errors.push(`${candidate.name}: ${error.message}`);
+    }
+  }
+
+  console.log("[archeon:checkCLIInstalled] Not found", errors);
+  return { success: false, error: errors.join(" | ") };
+});
+
 // Check if a directory exists
 ipcMain.handle("fs:checkDirExists", async (event, dirPath) => {
   try {

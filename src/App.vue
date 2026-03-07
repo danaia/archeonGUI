@@ -196,15 +196,30 @@ onMounted(async () => {
   window.addEventListener("keydown", handleGlobalKeydown);
   uiStore.setFocus("canvas");
 
-  // Check if user has seen the welcome modal before
   const hasSeenWelcome = localStorage.getItem("archeon:hasSeenWelcome") === "true";
-  if (!hasSeenWelcome) {
-    uiStore.openWelcomeModal();
-  }
+  let cliInstalled = false;
+  let cliCheckSucceeded = false;
 
   // Initialize archeon sync if in Electron
   if (isElectron.value) {
     initArcheonSync();
+
+    // Resolve CLI status first so onboarding modal only appears when needed.
+    try {
+      const cliResult = window.electronAPI.checkArcheonCLIInstalled
+        ? await window.electronAPI.checkArcheonCLIInstalled()
+        : await window.electronAPI.checkCommand(
+            "(command -v arc >/dev/null 2>&1 && arc --version) || (command -v archeon >/dev/null 2>&1 && archeon --version) || (test -x ~/.local/bin/arc && ~/.local/bin/arc --version) || (test -x ~/.local/bin/archeon && ~/.local/bin/archeon --version)"
+          );
+      cliInstalled = cliResult.success;
+      cliCheckSucceeded = true;
+    } catch (err) {
+      // Keep defaults; don't block startup.
+    }
+
+    if (!hasSeenWelcome && !cliInstalled) {
+      uiStore.openWelcomeModal();
+    }
 
     // Try to restore last project from localStorage
     const restored = await projectStore.restoreLastProject();
@@ -220,12 +235,17 @@ onMounted(async () => {
       // Check if setup modal should be shown
       // Show if CLI is not installed AND project has no /archeon directory
       try {
-        const cliResult = await window.electronAPI.checkCommand(
-          "archeon --version"
-        );
-        const cliInstalled = cliResult.success;
+        const resolvedCliInstalled = cliCheckSucceeded
+          ? cliInstalled
+          : (
+              window.electronAPI.checkArcheonCLIInstalled
+                ? await window.electronAPI.checkArcheonCLIInstalled()
+                : await window.electronAPI.checkCommand(
+                    "(command -v arc >/dev/null 2>&1 && arc --version) || (command -v archeon >/dev/null 2>&1 && archeon --version) || (test -x ~/.local/bin/arc && ~/.local/bin/arc --version) || (test -x ~/.local/bin/archeon && ~/.local/bin/archeon --version)"
+                  )
+            ).success;
 
-        if (!cliInstalled && projectStore.projectPath) {
+        if (!resolvedCliInstalled && projectStore.projectPath) {
           const archeonDirExists = await window.electronAPI.checkDirExists(
             `${projectStore.projectPath}/archeon`
           );
@@ -237,6 +257,8 @@ onMounted(async () => {
         // Silently fail - don't block app initialization
       }
     }
+  } else if (!hasSeenWelcome) {
+    uiStore.openWelcomeModal();
   }
 });
 

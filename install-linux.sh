@@ -5,6 +5,12 @@
 
 set -e
 
+if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "❌ Error: install-linux.sh only supports Linux."
+    echo "On macOS, run: ./install-mac.sh"
+    exit 1
+fi
+
 echo "🔧 Archeon Linux Installer"
 echo "=========================="
 echo ""

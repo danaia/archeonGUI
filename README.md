@@ -10,6 +10,7 @@ Archeon monitors your project's `archeon/` directory and instantly updates a vis
 
 - 📖 **[Linux Build Guide](LINUX_BUILD.md)** - Comprehensive Linux build and installation reference
 - 🚀 **Quick Install Linux**: `./install-linux.sh`
+- 🍎 **Quick Install macOS**: `./install-mac.sh`
 - 💻 **Development Mode**: `npm run dev`
 
 ## Platform-Specific Installation
