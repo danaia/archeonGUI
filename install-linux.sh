@@ -26,6 +26,18 @@ echo "🧹 Cleaning previous build artifacts..."
 rm -rf node_modules package-lock.json dist dist-electron release 2>/dev/null || true
 npm cache clean --force
 
+# Swap to Linux package.json
+echo ""
+echo "🐧 Applying Linux package.json..."
+if [ -f "package.json.linux" ]; then
+    cp package.json package.json.bak
+    cp package.json.linux package.json
+    echo "   Swapped package.json with Linux configuration"
+else
+    echo "❌ Error: package.json.linux not found. Cannot build on Linux without it."
+    exit 1
+fi
+
 # Install dependencies
 echo ""
 echo "📦 Installing dependencies..."

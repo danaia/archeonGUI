@@ -113,12 +113,12 @@ watch(
         >
           <div
             v-if="uiStore.isSetupModalOpen"
-            class="relative bg-ui-bg border border-ui-border rounded-lg shadow-2xl max-w-3xl w-full mx-4 animate-gpu"
+            class="relative bg-ui-bg border border-ui-border rounded-lg shadow-2xl max-w-3xl w-full mx-4 animate-gpu max-h-[90vh] flex flex-col"
             @click.stop
           >
             <!-- Modal Header -->
             <div
-              class="flex items-center justify-between px-4 py-3 border-b border-ui-border"
+              class="flex items-center justify-between px-4 py-3 border-b border-ui-border shrink-0"
             >
               <h2 class="text-lg font-semibold text-ui-text">Setup</h2>
               <button
@@ -143,7 +143,7 @@ watch(
             </div>
 
             <!-- Modal Body -->
-            <div class="px-4 py-6">
+            <div class="px-4 py-6 overflow-y-auto flex-1 min-h-0">
               <!-- Project Path Display & Selection -->
               <div
                 class="mb-6 p-3 rounded-lg bg-ui-bgLight border border-ui-border"
@@ -422,47 +422,45 @@ watch(
                   </div>
 
                   <!-- Shape Cards -->
-                  <div v-else class="grid grid-cols-2 gap-3 mb-4">
+                  <div v-else class="grid grid-cols-2 gap-2 mb-4">
                     <div
                       v-for="shape in shapeOptions"
                       :key="shape.id"
                       @click="selectShape(shape.id)"
                       :class="[
-                        'relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200',
-                        'hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]',
+                        'relative px-3 py-2 rounded-lg border-2 cursor-pointer transition-all duration-200',
+                        'hover:shadow-md hover:scale-[1.01] active:scale-[0.99]',
                         selectedShape === shape.id
                           ? 'border-green-500 bg-green-500/10 shadow-md'
                           : 'border-ui-border bg-ui-bg hover:border-ui-textMuted/50',
                       ]"
                     >
-                      <div class="flex items-start gap-3">
-                        <div class="text-2xl">{{ shape.icon }}</div>
-                        <div class="flex-1">
-                          <h3 class="font-bold text-ui-text text-sm mb-1">
+                      <div class="flex items-center gap-2">
+                        <div class="text-lg leading-none">{{ shape.icon }}</div>
+                        <div class="flex-1 min-w-0">
+                          <h3 class="font-bold text-ui-text text-xs">
                             {{ shape.name }}
                           </h3>
-                          <p
-                            class="text-xs text-ui-textMuted leading-relaxed mb-2"
-                          >
+                          <p class="text-[10px] text-ui-textMuted truncate">
                             {{ shape.description }}
                           </p>
-                          <div class="flex flex-wrap gap-1">
-                            <span
-                              v-for="tag in shape.tags"
-                              :key="tag"
-                              class="px-1.5 py-0.5 bg-ui-bgLight rounded text-xs text-ui-textMuted"
-                            >
-                              {{ tag }}
-                            </span>
-                          </div>
                         </div>
+                      </div>
+                      <div class="flex flex-wrap gap-1 mt-1 ml-7">
+                        <span
+                          v-for="tag in shape.tags"
+                          :key="tag"
+                          class="px-1 py-0 bg-ui-bgLight rounded text-[10px] text-ui-textMuted leading-tight"
+                        >
+                          {{ tag }}
+                        </span>
                       </div>
                       <div
                         v-if="selectedShape === shape.id"
-                        class="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center"
+                        class="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center"
                       >
                         <svg
-                          class="w-3 h-3 text-white"
+                          class="w-2.5 h-2.5 text-white"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
